@@ -34,3 +34,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Financial data and ticker information
+src/data/
+!src/data/company_tickers.json
+data/companyfacts/
+company_tickers.json

@@ -7,25 +7,9 @@ Sevalla is the intuitive platform and the perfect home for your web projects. De
 
 ## Getting Started
 
-First, run the development server:
+Movement
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Press / - Opens the search modal to filter articles by tags
+Type a tag and press Enter - Filters articles to show only those with that tag
+Press = - Clears any active filter and shows all articles again
+Press Escape - Closes the search modal (when open)

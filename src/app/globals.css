@@ -1,22 +1,65 @@
 @import "tailwindcss";
-@config "../../tailwind.config.ts";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Custom gray-750 background */
+.bg-gray-750 {
+  background-color: #374151;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Line clamp utilities */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  background: #ffffff;
+  color: #111827;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: #f7c325;
+}
+
+/* Bloomberg Terminal inspired accent */
+.terminal-accent {
+  color: #f7c325;
+}
+
+/* Apple-like card */
+.apple-card {
+  background: #181d23;
+  border-radius: 18px;
+  box-shadow: 0 2px 16px 0 #0004;
+  border: 1px solid #23272f;
+  padding: 2rem;
 }
 
 @layer utilities {

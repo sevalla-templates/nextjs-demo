@@ -1,0 +1,29 @@
+[
+  {
+    "slug": "dsf",
+    "title": "DSF",
+    "content": "Content",
+    "image": "https://www.n-tv.de/img/22589357-1752075388000/17-6/320/234944287.jpg",
+    "date": "2025-07-09",
+    "tags": "PLTR",
+    "description": "Short descript"
+  },
+  {
+    "slug": "233",
+    "title": "233",
+    "content": "Content",
+    "image": "https://www.n-tv.de/img/22589357-1752075388000/17-6/320/234944287.jpg",
+    "date": "2025-07-09",
+    "tags": "Apple, MFST",
+    "description": "Short descript"
+  },
+  {
+    "slug": "asd",
+    "title": "asd",
+    "content": "Content",
+    "image": "https://www.n-tv.de/img/22589357-1752075388000/17-6/320/234944287.jpg",
+    "date": "2025-07-09",
+    "tags": "stocks, investing, MVST",
+    "description": "Short descript"
+  }
+]
