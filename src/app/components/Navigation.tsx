@@ -1,11 +1,12 @@
 'use client';
 
 import { useAuth } from '../../contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 export default function Navigation() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   const handleLogout = async () => {
     try {
@@ -16,15 +17,37 @@ export default function Navigation() {
     }
   };
 
+  const isActive = (path: string) => pathname === path;
+
   return (
     <nav className="flex gap-6 text-sm font-medium text-white items-center">
-      <a href="/" className="hover:text-[#f7c325] transition">Home</a>
+      <button 
+        onClick={() => router.push('/')}
+        className={`hover:text-[#f7c325] transition ${isActive('/') ? 'text-[#f7c325]' : ''}`}
+      >
+        Home
+      </button>
       
       {user ? (
         <>
-          <a href="/dashboard" className="hover:text-[#f7c325] transition">Dashboard</a>
-          <a href="/search" className="hover:text-[#f7c325] transition">Search</a>
-          <a href="/account" className="hover:text-[#f7c325] transition">Account</a>
+          <button 
+            onClick={() => router.push('/dashboard')}
+            className={`hover:text-[#f7c325] transition ${isActive('/dashboard') ? 'text-[#f7c325]' : ''}`}
+          >
+            Dashboard
+          </button>
+          <button 
+            onClick={() => router.push('/search')}
+            className={`hover:text-[#f7c325] transition ${isActive('/search') ? 'text-[#f7c325]' : ''}`}
+          >
+            Search
+          </button>
+          <button 
+            onClick={() => router.push('/account')}
+            className={`hover:text-[#f7c325] transition ${isActive('/account') ? 'text-[#f7c325]' : ''}`}
+          >
+            Account
+          </button>
           <div className="text-xs text-gray-400 px-2 py-1 bg-gray-700 rounded">
             Press / to search
           </div>
@@ -36,7 +59,12 @@ export default function Navigation() {
           </button>
         </>
       ) : (
-        <a href="/landing" className="hover:text-[#f7c325] transition">Sign In</a>
+        <button 
+          onClick={() => router.push('/landing')}
+          className="hover:text-[#f7c325] transition"
+        >
+          Sign In
+        </button>
       )}
     </nav>
   );
