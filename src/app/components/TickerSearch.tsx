@@ -46,16 +46,11 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
     setFilteredTickers(results);
   };
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts (disabled '/' key to avoid conflict with global SearchModal)
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
-      if (event.key === '/' && !isOpen) {
-        event.preventDefault();
-        setIsOpen(true);
-        setSearchTerm('');
-        setFilteredTickers([]);
-        setTimeout(() => searchInputRef.current?.focus(), 0);
-      } else if (event.key === '=' && !isOpen && selectedTicker) {
+      // Removed '/' key handler to avoid conflict with global SearchModal
+      if (event.key === '=' && !isOpen && selectedTicker) {
         event.preventDefault();
         onClear();
       } else if (event.key === 'Escape' && isOpen) {
@@ -234,7 +229,7 @@ export default function TickerSearch({ onTickerSelect, onClear, selectedTicker, 
       <div className="w-full bg-white min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-4xl font-bold mb-4 text-gray-900">Financial Data Lookup</h1>
-          <p className="text-gray-600 mb-8">Press "/" to search for any ticker symbol</p>
+          <p className="text-gray-600 mb-8">Press "/" to open global search modal, or type directly in the box below</p>
           <div className="text-sm text-gray-500 space-y-2">
             <p>Examples: AAPL, MSFT, TSLA, GOOGL</p>
             <p className="text-blue-600">View types:</p>

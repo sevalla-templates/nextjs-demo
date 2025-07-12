@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from '../contexts/AuthContext';
 import Navigation from './components/Navigation';
+import SearchModalWrapper from './SearchModalWrapper';
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -42,6 +43,7 @@ export default function RootLayout({
           <footer className="w-full border-t border-gray-200 bg-gray-100 px-6 py-4 text-center text-xs text-gray-600 mt-12">
             &copy; {new Date().getFullYear()} The Bottom Tick. Not affiliated with Bloomberg or Apple.
           </footer>
+          <SearchModalWrapper />
         </AuthProvider>
       </body>
     </html>

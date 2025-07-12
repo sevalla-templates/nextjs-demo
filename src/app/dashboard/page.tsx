@@ -1,15 +1,29 @@
 'use client';
 
 import { useAuth } from '../../contexts/AuthContext';
-import { useUserProfile, useWatchlist } from '../../hooks/useFirestore';
+import { useUserProfile } from '../../hooks/useFirestore';
+import { useWatchlist } from '../../hooks/useWatchlist';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const { profile, loading: profileLoading } = useUserProfile();
-  const { watchlist, loading: watchlistLoading } = useWatchlist();
+  const { watchlist, loading: watchlistLoading, removeFromWatchlist, getWatchlistByType } = useWatchlist();
   const [activeTab, setActiveTab] = useState('overview');
+  const router = useRouter();
+
+  const handleTickerClick = (ticker: string) => {
+    router.push(`/${ticker}`);
+  };
+
+  const handleRemoveFromWatchlist = async (ticker: string) => {
+    await removeFromWatchlist(ticker);
+  };
+
+  const growthStocks = getWatchlistByType('growth');
+  const declineStocks = getWatchlistByType('decline');
 
   if (profileLoading || watchlistLoading) {
     return (
@@ -97,19 +111,19 @@ export default function DashboardPage() {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Growth Stocks</span>
                     <span className="font-semibold text-green-600">
-                      {watchlist.growth.length}
+                      {growthStocks.length}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Decline Stocks</span>
                     <span className="font-semibold text-red-600">
-                      {watchlist.decline.length}
+                      {declineStocks.length}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Total Watched</span>
                     <span className="font-semibold text-blue-600">
-                      {watchlist.growth.length + watchlist.decline.length}
+                      {growthStocks.length + declineStocks.length}
                     </span>
                   </div>
                 </div>
@@ -118,8 +132,9 @@ export default function DashboardPage() {
               {/* Recent Growth Stocks */}
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Growth</h3>
-                {watchlist.growth.slice(0, 5).map((item, index) => (
-                  <div key={index} className="flex justify-between items-center py-2">
+                {growthStocks.slice(0, 5).map((item, index) => (
+                  <div key={index} className="flex justify-between items-center py-2 cursor-pointer hover:bg-gray-50 rounded-lg px-2"
+                       onClick={() => handleTickerClick(item.ticker)}>
                     <span className="font-medium text-gray-900">{item.ticker}</span>
                     <span className="text-xs text-gray-500">
                       {item.addedAt instanceof Date ? 
@@ -128,7 +143,7 @@ export default function DashboardPage() {
                     </span>
                   </div>
                 ))}
-                {watchlist.growth.length === 0 && (
+                {growthStocks.length === 0 && (
                   <p className="text-gray-500 text-sm">No growth stocks added yet</p>
                 )}
               </div>
@@ -136,8 +151,9 @@ export default function DashboardPage() {
               {/* Recent Decline Stocks */}
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Decline</h3>
-                {watchlist.decline.slice(0, 5).map((item, index) => (
-                  <div key={index} className="flex justify-between items-center py-2">
+                {declineStocks.slice(0, 5).map((item, index) => (
+                  <div key={index} className="flex justify-between items-center py-2 cursor-pointer hover:bg-gray-50 rounded-lg px-2"
+                       onClick={() => handleTickerClick(item.ticker)}>
                     <span className="font-medium text-gray-900">{item.ticker}</span>
                     <span className="text-xs text-gray-500">
                       {item.addedAt instanceof Date ? 
@@ -146,7 +162,7 @@ export default function DashboardPage() {
                     </span>
                   </div>
                 ))}
-                {watchlist.decline.length === 0 && (
+                {declineStocks.length === 0 && (
                   <p className="text-gray-500 text-sm">No decline stocks added yet</p>
                 )}
               </div>
@@ -181,12 +197,15 @@ export default function DashboardPage() {
               {/* Growth Watchlist */}
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <h3 className="text-lg font-semibold text-green-600 mb-4">
-                  Growth Watchlist ({watchlist.growth.length})
+                  Growth Watchlist ({growthStocks.length})
                 </h3>
                 <div className="space-y-3">
-                  {watchlist.growth.map((item, index) => (
+                  {growthStocks.map((item, index) => (
                     <div key={index} className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                      <div>
+                      <div 
+                        className="cursor-pointer flex-1"
+                        onClick={() => handleTickerClick(item.ticker)}
+                      >
                         <span className="font-medium text-gray-900">{item.ticker}</span>
                         <p className="text-xs text-gray-500">
                           Added {item.addedAt instanceof Date ? 
@@ -194,12 +213,15 @@ export default function DashboardPage() {
                             new Date(item.addedAt).toLocaleDateString()}
                         </p>
                       </div>
-                      <button className="text-red-500 hover:text-red-700 text-sm">
+                      <button 
+                        onClick={() => handleRemoveFromWatchlist(item.ticker)}
+                        className="text-red-500 hover:text-red-700 text-sm ml-4"
+                      >
                         Remove
                       </button>
                     </div>
                   ))}
-                  {watchlist.growth.length === 0 && (
+                  {growthStocks.length === 0 && (
                     <div className="text-center py-8">
                       <p className="text-gray-500">No growth stocks in your watchlist</p>
                       <p className="text-sm text-gray-400 mt-2">
@@ -213,12 +235,15 @@ export default function DashboardPage() {
               {/* Decline Watchlist */}
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <h3 className="text-lg font-semibold text-red-600 mb-4">
-                  Decline Watchlist ({watchlist.decline.length})
+                  Decline Watchlist ({declineStocks.length})
                 </h3>
                 <div className="space-y-3">
-                  {watchlist.decline.map((item, index) => (
+                  {declineStocks.map((item, index) => (
                     <div key={index} className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
-                      <div>
+                      <div 
+                        className="cursor-pointer flex-1"
+                        onClick={() => handleTickerClick(item.ticker)}
+                      >
                         <span className="font-medium text-gray-900">{item.ticker}</span>
                         <p className="text-xs text-gray-500">
                           Added {item.addedAt instanceof Date ? 
@@ -226,12 +251,15 @@ export default function DashboardPage() {
                             new Date(item.addedAt).toLocaleDateString()}
                         </p>
                       </div>
-                      <button className="text-red-500 hover:text-red-700 text-sm">
+                      <button 
+                        onClick={() => handleRemoveFromWatchlist(item.ticker)}
+                        className="text-red-500 hover:text-red-700 text-sm ml-4"
+                      >
                         Remove
                       </button>
                     </div>
                   ))}
-                  {watchlist.decline.length === 0 && (
+                  {declineStocks.length === 0 && (
                     <div className="text-center py-8">
                       <p className="text-gray-500">No decline stocks in your watchlist</p>
                       <p className="text-sm text-gray-400 mt-2">

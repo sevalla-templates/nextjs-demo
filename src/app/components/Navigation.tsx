@@ -17,7 +17,7 @@ export default function Navigation() {
   };
 
   return (
-    <nav className="flex gap-6 text-sm font-medium text-white">
+    <nav className="flex gap-6 text-sm font-medium text-white items-center">
       <a href="/" className="hover:text-[#f7c325] transition">Home</a>
       
       {user ? (
@@ -25,6 +25,9 @@ export default function Navigation() {
           <a href="/dashboard" className="hover:text-[#f7c325] transition">Dashboard</a>
           <a href="/search" className="hover:text-[#f7c325] transition">Search</a>
           <a href="/account" className="hover:text-[#f7c325] transition">Account</a>
+          <div className="text-xs text-gray-400 px-2 py-1 bg-gray-700 rounded">
+            Press / to search
+          </div>
           <button 
             onClick={handleLogout}
             className="hover:text-[#f7c325] transition"

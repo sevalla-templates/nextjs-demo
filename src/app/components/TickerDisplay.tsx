@@ -2,7 +2,7 @@
  * TickerDisplay Component - Financial Dashboard
  * 
  * Current Features:
- * - Multiple view types: default, detailed (.d), quarterly (.q), charts (.c), income (.i)
+ * - Multiple view types: default, detailed (.d), quarterly (.q), charts (.ch), income (.i)
  * - Parabolic trend analysis with short-term trend indicators
  * - Trend percentage calculations showing curve acceleration/deceleration
  * 
@@ -620,6 +620,11 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
       }
 
       const key = event.key.toLowerCase();
+      
+      // Let the global SearchModal handle the '/' key
+      if (key === '/') {
+        return;
+      }
 
       // Handle horizontal scrolling with j/k keys
       if (key === 'j' || key === 'k') {
@@ -781,6 +786,52 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
   }
 
   const { title } = data;
+
+  // Handle case when financial data is not available
+  if (data.financialData === "not_loaded" || (!data.facts && !data.metrics && !data.forwardEstimates)) {
+    return (
+      <div className="w-full bg-white text-gray-900">
+        <div className="w-[90%] mx-auto px-6 py-6">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">{ticker}</h1>
+              <p className="text-gray-600">{title}</p>
+            </div>
+            <button
+              onClick={onClear}
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+            >
+              ← Back
+            </button>
+          </div>
+
+          {/* No Data Message */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
+            <div className="text-6xl mb-4">📊</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              Financial Data Not Available
+            </h2>
+            <p className="text-gray-600 mb-4">
+              We don't have financial data for <strong>{ticker}</strong> in our database yet.
+            </p>
+            <div className="bg-white rounded-lg p-4 max-w-md mx-auto">
+              <h3 className="font-semibold mb-2">This could be because:</h3>
+              <ul className="text-sm text-gray-600 space-y-1">
+                <li>• The company hasn't filed SEC reports yet</li>
+                <li>• Data is still being processed</li>
+                <li>• The ticker symbol might be new or changed</li>
+                <li>• The company might be private or foreign</li>
+              </ul>
+            </div>
+            <p className="text-sm text-gray-500 mt-4">
+              Try searching for a different ticker or check back later.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full bg-white text-gray-900">

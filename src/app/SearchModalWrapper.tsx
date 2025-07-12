@@ -5,21 +5,21 @@ import { useEffect, useState } from "react";
 const SearchModal = dynamic(() => import("./SearchModal"), { ssr: false });
 
 export default function SearchModalWrapper() {
-  const [articles, setArticles] = useState<any[]>([]);
+  const [tickers, setTickers] = useState<Record<string, { cik: string; title: string }>>({});
 
   useEffect(() => {
-    const fetchArticles = async () => {
+    const fetchTickers = async () => {
       try {
-        const response = await fetch("/api/articles");
+        const response = await fetch("/api/tickers");
         const data = await response.json();
-        setArticles(data);
+        setTickers(data);
       } catch (error) {
-        console.error("Failed to fetch articles:", error);
+        console.error("Failed to fetch tickers:", error);
       }
     };
 
-    fetchArticles();
+    fetchTickers();
   }, []);
 
-  return <SearchModal articles={articles} />;
+  return <SearchModal tickers={tickers} />;
 }
