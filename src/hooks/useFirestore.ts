@@ -11,6 +11,7 @@ export const useUserProfile = () => {
 
   useEffect(() => {
     if (user) {
+      setLoading(true); // Reset loading state when user changes
       loadUserProfile();
     } else {
       setProfile(null);
@@ -59,6 +60,7 @@ export const useWatchlist = () => {
 
   useEffect(() => {
     if (user) {
+      setLoading(true); // Reset loading state when user changes
       loadWatchlist();
     } else {
       setWatchlist({ growth: [], decline: [] });

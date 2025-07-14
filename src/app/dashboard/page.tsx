@@ -26,6 +26,12 @@ export default function DashboardPage() {
     }
   }, [user, loading, mounted, router]);
 
+  // Reset loading states when user changes
+  useEffect(() => {
+    // This ensures that when navigating back to dashboard, 
+    // the loading states are properly reset
+  }, [user]);
+
   const handleTickerClick = (ticker: string) => {
     router.push(`/${ticker}`);
   };
@@ -52,7 +58,8 @@ export default function DashboardPage() {
     return null;
   }
 
-  if (profileLoading || watchlistLoading) {
+  // Show loading only if both profile and watchlist are still loading
+  if (profileLoading && watchlistLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

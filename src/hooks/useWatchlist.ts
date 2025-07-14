@@ -33,6 +33,7 @@ export const useWatchlist = () => {
   };
 
   useEffect(() => {
+    setLoading(true); // Reset loading state when user changes
     loadWatchlist();
   }, [user]);
 
