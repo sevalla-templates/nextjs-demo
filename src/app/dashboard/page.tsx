@@ -5,6 +5,7 @@ import { useUserProfile } from '../../hooks/useFirestore';
 import { useWatchlist } from '../../hooks/useWatchlist';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import UserBadges from '../components/UserBadges';
+import UserCredibilitySystem from '../components/UserCredibilitySystem';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -107,6 +108,9 @@ export default function DashboardPage() {
             <div className="grid md:grid-cols-3 gap-6">
               {/* User Stats & Badges */}
               <UserBadges />
+
+              {/* Credibility System */}
+              <UserCredibilitySystem />
 
               {/* Quick Stats */}
               <div className="bg-white rounded-lg shadow-sm p-6">

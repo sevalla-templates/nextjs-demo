@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import CommunityMetrics from './components/CommunityMetrics';
 import RecentActivity from './components/RecentActivity';
+import SectorRankings from './components/SectorRankings';
+import TimeBasedRankings from './components/TimeBasedRankings';
+import ForecastingContests from './components/ForecastingContests';
 
 export default function HomePage() {
   const { user, loading } = useAuth();
@@ -50,8 +53,25 @@ export default function HomePage() {
         {/* Community Stats and Rankings */}
         <CommunityMetrics />
 
+        {/* Time-based Rankings */}
+        <div className="mt-8">
+          <TimeBasedRankings />
+        </div>
+
+        {/* Sector Rankings */}
+        <div className="mt-8">
+          <SectorRankings />
+        </div>
+
         {/* Recent Activity */}
-        <RecentActivity />
+        <div className="mt-8">
+          <RecentActivity />
+        </div>
+
+        {/* Forecasting Contests */}
+        <div className="mt-8">
+          <ForecastingContests />
+        </div>
 
         {/* Call to Action */}
         <div className="mt-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-sm">
