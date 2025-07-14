@@ -18,6 +18,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import FinancialVisualizationDashboard from './FinancialVisualizationDashboard';
+import VoteButton from './VoteButton';
 
 interface TickerDisplayProps {
   ticker: string;
@@ -836,6 +837,28 @@ export default function TickerDisplay({ ticker, data, onClear, viewType = 'defau
   return (
     <div className="w-full bg-white text-gray-900">
       <div className="w-[90%] mx-auto px-6 py-6 space-y-6">
+        {/* Header with Company Info and Voting */}
+        <div className="flex justify-between items-start mb-6 pb-4 border-b border-gray-200">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">{ticker}</h1>
+            <p className="text-gray-600 mt-1">{data.title || 'Financial Analysis'}</p>
+          </div>
+          <div className="flex items-center gap-4">
+            {/* Community Voting */}
+            <div className="flex gap-3">
+              <VoteButton ticker={ticker} type="growth" showCount={true} />
+              <VoteButton ticker={ticker} type="decline" showCount={true} />
+            </div>
+            {/* Back Button */}
+            <button
+              onClick={onClear}
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+            >
+              ← Back
+            </button>
+          </div>
+        </div>
+
         {/* Financial Charts and Data */}
         {(data.facts || data.metrics || data.forwardEstimates) && (() => {
           const isDetailedView = viewType === 'quarterly' || viewType === 'charts' || viewType === 'visualization';

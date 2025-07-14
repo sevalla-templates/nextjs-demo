@@ -65,30 +65,6 @@ export default function StockSearchPage() {
         
         {selectedTicker && (
           <div className="relative">
-            {/* Watchlist Actions */}
-            <div className="fixed bottom-6 right-6 z-50 space-y-2">
-              <button
-                onClick={() => handleAddToWatchlist(selectedTicker, 'growth')}
-                className={`block w-full px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isInWatchlist(selectedTicker, 'growth')
-                    ? 'bg-green-600 text-white'
-                    : 'bg-green-100 text-green-700 hover:bg-green-200'
-                }`}
-              >
-                {isInWatchlist(selectedTicker, 'growth') ? '✓ Growth' : '+ Growth'}
-              </button>
-              <button
-                onClick={() => handleAddToWatchlist(selectedTicker, 'decline')}
-                className={`block w-full px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isInWatchlist(selectedTicker, 'decline')
-                    ? 'bg-red-600 text-white'
-                    : 'bg-red-100 text-red-700 hover:bg-red-200'
-                }`}
-              >
-                {isInWatchlist(selectedTicker, 'decline') ? '✓ Decline' : '+ Decline'}
-              </button>
-            </div>
-
             <TickerDisplay 
               ticker={selectedTicker}
               data={companyData}
