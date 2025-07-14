@@ -39,4 +39,5 @@ next-env.d.ts
 src/data/
 !src/data/company_tickers.json
 data/companyfacts/
+data/tickerdata/
 company_tickers.json
