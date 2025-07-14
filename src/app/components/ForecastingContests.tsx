@@ -15,7 +15,6 @@ interface Contest {
   endDate: Date;
   startDate: Date;
   description: string;
-  prizes: string[];
   participantCount: number;
 }
 
@@ -29,7 +28,16 @@ interface Prediction {
   reasoning: string;
   timestamp: Date;
   points: number;
-  isCorrect?: boolean;
+  isCorrect?: boolean; // Optional field, added when contest ends
+}
+
+interface UserRank {
+  title: string;
+  badge: string;
+  minPoints: number;
+  maxPoints: number;
+  color: string;
+  description: string;
 }
 
 interface UserContestStats {
@@ -38,6 +46,9 @@ interface UserContestStats {
   totalPredictions: number;
   rank: number;
   accuracy: number;
+  currentRank: UserRank;
+  nextRank: UserRank | null;
+  progressToNext: number;
 }
 
 export default function ForecastingContests() {
@@ -53,6 +64,33 @@ export default function ForecastingContests() {
   const [predictionType, setPredictionType] = useState<Prediction['predictionType']>('earnings_beat');
   const [confidence, setConfidence] = useState(50);
   const [reasoning, setReasoning] = useState('');
+
+  // Define ranking system
+  const userRanks: UserRank[] = [
+    { title: 'Market Rookie', badge: '🌱', minPoints: 0, maxPoints: 499, color: 'from-green-400 to-green-600', description: 'Just starting your market journey' },
+    { title: 'Casual Trader', badge: '📈', minPoints: 500, maxPoints: 999, color: 'from-blue-400 to-blue-600', description: 'Learning market patterns' },
+    { title: 'Active Investor', badge: '💼', minPoints: 1000, maxPoints: 1999, color: 'from-purple-400 to-purple-600', description: 'Building investment experience' },
+    { title: 'Market Strategist', badge: '🎯', minPoints: 2000, maxPoints: 3999, color: 'from-orange-400 to-orange-600', description: 'Developing strategic insights' },
+    { title: 'Portfolio Expert', badge: '🏆', minPoints: 4000, maxPoints: 7999, color: 'from-yellow-400 to-yellow-600', description: 'Advanced market understanding' },
+    { title: 'Market Specialist', badge: '⭐', minPoints: 8000, maxPoints: 15999, color: 'from-red-400 to-red-600', description: 'Expert-level market knowledge' },
+    { title: 'Elite Predictor', badge: '🔥', minPoints: 16000, maxPoints: 31999, color: 'from-pink-400 to-pink-600', description: 'Exceptional forecasting ability' },
+    { title: 'Market Legend', badge: '💎', minPoints: 32000, maxPoints: Infinity, color: 'from-indigo-400 to-indigo-600', description: 'Legendary market insight' }
+  ];
+
+  const getCurrentRank = (points: number): UserRank => {
+    return userRanks.find(rank => points >= rank.minPoints && points <= rank.maxPoints) || userRanks[0];
+  };
+
+  const getNextRank = (currentRank: UserRank): UserRank | null => {
+    const currentIndex = userRanks.indexOf(currentRank);
+    return currentIndex < userRanks.length - 1 ? userRanks[currentIndex + 1] : null;
+  };
+
+  const getProgressToNext = (points: number, currentRank: UserRank, nextRank: UserRank | null): number => {
+    if (!nextRank) return 100;
+    const progress = ((points - currentRank.minPoints) / (nextRank.minPoints - currentRank.minPoints)) * 100;
+    return Math.min(progress, 100);
+  };
 
   useEffect(() => {
     // Initialize current contest
@@ -70,7 +108,6 @@ export default function ForecastingContests() {
         startDate: new Date(currentYear, (currentQuarter - 1) * 3, 1),
         endDate: new Date(currentYear, currentQuarter * 3, 0),
         description: `Predict earnings and stock performance for Q${currentQuarter} ${currentYear}`,
-        prizes: ['$500 Amazon Gift Card', '$300 Stock Trading Credit', '$200 Investment Course'],
         participantCount: Math.floor(Math.random() * 500) + 200
       },
       {
@@ -81,7 +118,6 @@ export default function ForecastingContests() {
         startDate: new Date(currentYear, currentQuarter * 3, 1),
         endDate: new Date(currentYear, (currentQuarter + 1) * 3, 0),
         description: `Predict earnings and stock performance for Q${currentQuarter + 1} ${currentYear}`,
-        prizes: ['$500 Amazon Gift Card', '$300 Stock Trading Credit', '$200 Investment Course'],
         participantCount: 0
       }
     ];
@@ -112,18 +148,52 @@ export default function ForecastingContests() {
         const totalPoints = contestPredictions.reduce((sum, p) => sum + p.points, 0);
         const accuracy = totalPredictions > 0 ? (correctPredictions / totalPredictions) * 100 : 0;
 
+        // Calculate ranking info
+        const currentRank = getCurrentRank(totalPoints);
+        const nextRank = getNextRank(currentRank);
+        const progressToNext = getProgressToNext(totalPoints, currentRank, nextRank);
+
         setUserStats({
           totalPoints,
           correctPredictions,
           totalPredictions,
           rank: Math.floor(Math.random() * 50) + 1, // Demo rank
-          accuracy
+          accuracy,
+          currentRank,
+          nextRank,
+          progressToNext
         });
 
         setLoading(false);
       });
 
-      return () => unsubscribe();
+      // Listen to all predictions to update participant counts
+      const allPredictionsQuery = query(collection(db, 'predictions'));
+      const unsubscribeAll = onSnapshot(allPredictionsQuery, (snapshot) => {
+        const allPredictions = snapshot.docs.map(doc => doc.data());
+        
+        // Update participant counts for each contest
+        const updatedContests = demoContests.map(contest => {
+          const contestParticipants = new Set(
+            allPredictions
+              .filter(p => p.contestId === contest.id)
+              .map(p => p.userId)
+          );
+          
+          return {
+            ...contest,
+            participantCount: contestParticipants.size
+          };
+        });
+        
+        setContests(updatedContests);
+        setActiveContest(updatedContests[0]);
+      });
+
+      return () => {
+        unsubscribe();
+        unsubscribeAll();
+      };
     } else {
       setLoading(false);
     }
@@ -139,7 +209,7 @@ export default function ForecastingContests() {
     const confidenceMultiplier = confidence / 100;
     const points = Math.round(basePoints * confidenceMultiplier);
 
-    const prediction: Prediction = {
+    const prediction = {
       id: predictionId,
       userId: user.uid,
       contestId: activeContest.id,
@@ -148,8 +218,8 @@ export default function ForecastingContests() {
       confidence,
       reasoning,
       timestamp: new Date(),
-      points,
-      isCorrect: undefined // Will be determined when contest ends
+      points
+      // isCorrect will be added when contest ends
     };
 
     try {
@@ -281,20 +351,41 @@ export default function ForecastingContests() {
           </div>
         )}
 
-        {/* Prize Pool */}
-        <div className="mb-6 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
-          <h4 className="font-medium text-yellow-800 mb-2">🏆 Prize Pool</h4>
-          <div className="grid grid-cols-3 gap-4">
-            {activeContest?.prizes.map((prize, index) => (
-              <div key={index} className="text-center">
-                <div className="text-2xl mb-1">
-                  {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+        {/* Current Rank Display */}
+        {userStats && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center">
+                <span className="text-2xl mr-3">{userStats.currentRank.badge}</span>
+                <div>
+                  <h4 className="font-semibold text-indigo-900">{userStats.currentRank.title}</h4>
+                  <p className="text-sm text-indigo-700">{userStats.currentRank.description}</p>
                 </div>
-                <div className="text-sm font-medium text-yellow-800">{prize}</div>
               </div>
-            ))}
+              <div className="text-right">
+                <div className="text-lg font-bold text-indigo-900">{userStats.totalPoints} pts</div>
+                <div className="text-sm text-indigo-600">
+                  {userStats.nextRank ? `${userStats.nextRank.minPoints - userStats.totalPoints} to next` : 'Max rank!'}
+                </div>
+              </div>
+            </div>
+            
+            {userStats.nextRank && (
+              <div>
+                <div className="flex justify-between text-sm text-indigo-700 mb-1">
+                  <span>{userStats.currentRank.title}</span>
+                  <span>{userStats.nextRank.title}</span>
+                </div>
+                <div className="w-full bg-indigo-200 rounded-full h-2">
+                  <div 
+                    className="h-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500"
+                    style={{ width: `${userStats.progressToNext}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
         {/* User Predictions */}
         {userPredictions.length > 0 && (
