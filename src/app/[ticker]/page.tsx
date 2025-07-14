@@ -3,10 +3,11 @@
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useWatchlist } from '../../hooks/useWatchlist';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import TickerDisplay from '../components/TickerDisplay';
-import { TrendingUp, TrendingDown, ArrowLeft } from 'lucide-react';
+import TickerCommunityMetrics from '../components/TickerCommunityMetrics';
+import { ArrowLeft } from 'lucide-react';
+import companyTickers from '../../data/company_tickers.json';
 
 export default function TickerPage() {
   const params = useParams();
@@ -15,13 +16,13 @@ export default function TickerPage() {
   const ticker = params.ticker as string;
   const viewType = searchParams.get('view') || 'default';
   const { user } = useAuth();
-  const { addToWatchlist, removeFromWatchlist, isInWatchlist } = useWatchlist();
 
   const [tickerData, setTickerData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const watchlistItem = isInWatchlist(ticker?.toUpperCase());
+  // Get company info for sector data
+  const companyInfo = companyTickers[ticker?.toUpperCase() as keyof typeof companyTickers] as any;
 
   useEffect(() => {
     const fetchTickerData = async () => {
@@ -50,26 +51,6 @@ export default function TickerPage() {
 
     fetchTickerData();
   }, [ticker]);
-
-  const handleWatchlistAction = async (action: 'growth' | 'decline') => {
-    if (!user || !ticker) return;
-
-    const upperTicker = ticker.toUpperCase();
-    
-    if (watchlistItem) {
-      if (watchlistItem.type === action) {
-        // Remove if clicking same action
-        await removeFromWatchlist(upperTicker);
-      } else {
-        // Switch to new action
-        await removeFromWatchlist(upperTicker);
-        await addToWatchlist(upperTicker, action);
-      }
-    } else {
-      // Add new item
-      await addToWatchlist(upperTicker, action);
-    }
-  };
 
   const handleClear = () => {
     router.push('/search');
@@ -135,53 +116,31 @@ export default function TickerPage() {
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-8">
           {/* Header */}
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => router.back()}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    {ticker.toUpperCase()}
-                  </h1>
-                  <p className="text-gray-600">
-                    {tickerData?.title || 'Stock Analysis'}
-                  </p>
-                </div>
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => router.back()}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">
+                  {ticker.toUpperCase()}
+                </h1>
+                <p className="text-gray-600">
+                  {tickerData?.title || companyInfo?.title || 'Stock Analysis'}
+                </p>
               </div>
-              
-              {/* Watchlist Actions */}
-              {user && (
-                <div className="flex space-x-4">
-                  <button
-                    onClick={() => handleWatchlistAction('growth')}
-                    className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
-                      watchlistItem?.type === 'growth'
-                        ? 'bg-green-100 text-green-700 border-2 border-green-300'
-                        : 'bg-white text-gray-700 border-2 border-gray-300 hover:bg-green-50 hover:border-green-300'
-                    }`}
-                  >
-                    <TrendingUp className="w-5 h-5 mr-2" />
-                    {watchlistItem?.type === 'growth' ? 'In Growth List' : 'Add to Growth'}
-                  </button>
-                  <button
-                    onClick={() => handleWatchlistAction('decline')}
-                    className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
-                      watchlistItem?.type === 'decline'
-                        ? 'bg-red-100 text-red-700 border-2 border-red-300'
-                        : 'bg-white text-gray-700 border-2 border-gray-300 hover:bg-red-50 hover:border-red-300'
-                    }`}
-                  >
-                    <TrendingDown className="w-5 h-5 mr-2" />
-                    {watchlistItem?.type === 'decline' ? 'In Decline List' : 'Add to Decline'}
-                  </button>
-                </div>
-              )}
             </div>
+          </div>
+
+          {/* Community Metrics */}
+          <div className="mb-6">
+            <TickerCommunityMetrics 
+              ticker={ticker.toUpperCase()} 
+              sector={companyInfo?.sector}
+            />
           </div>
 
           {/* Content */}

@@ -28,7 +28,7 @@ interface Contest {
 interface Prediction {
   id: string;
   userId: string;
-  contestId: string;
+  contestId?: string;
   ticker: string;
   predictionType: 'earnings_beat' | 'earnings_miss' | 'revenue_beat' | 'revenue_miss' | 'price_up' | 'price_down';
   confidence: number;
@@ -57,11 +57,30 @@ export default function TickerPredictionsPage() {
   // Check if financial data exists for a specific quarter
   const checkDataAvailability = async (ticker: string, quarter: number, year: number): Promise<boolean> => {
     try {
-      // Try to fetch the financial data file for this ticker
-      const response = await fetch(`/api/financial-data/${ticker}`, { method: 'HEAD' });
+      // Fetch the ticker's financial data to check if specific quarter exists
+      const response = await fetch(`/api/tickers/${ticker.toUpperCase()}`);
       if (!response.ok) return false;
       
-      // For now, we'll use a heuristic based on typical earnings reporting schedules
+      const data = await response.json();
+      
+      // If no financial data is available at all, assume data is not available
+      if (data.financialData !== 'available' || !data.metrics || data.metrics.length === 0) {
+        return false;
+      }
+      
+      // Check if we have data for the specific quarter
+      const quarterKey = `${year}-Q${quarter}`;
+      
+      // Look through the financial metrics to see if we have data for this quarter
+      const hasQuarterData = data.metrics.some((metric: any) => 
+        metric.dataPoints && metric.dataPoints.some((point: any) => point.period === quarterKey)
+      );
+      
+      if (hasQuarterData) {
+        return true; // Data exists for this quarter
+      }
+      
+      // If we don't have data for this quarter, check if we're past the typical reporting deadline
       const now = new Date();
       const currentYear = now.getFullYear();
       const currentMonth = now.getMonth() + 1; // 1-12
@@ -171,6 +190,7 @@ export default function TickerPredictionsPage() {
 
     const initializeContests = async () => {
       try {
+        setLoading(true);
         const contests = await generateAvailableContests(ticker);
         setAvailableContests(contests);
         
@@ -265,7 +285,7 @@ export default function TickerPredictionsPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading predictions...</p>
+          <p className="mt-2 text-gray-600">Checking {ticker} earnings data availability...</p>
         </div>
       </div>
     );
@@ -361,11 +381,15 @@ export default function TickerPredictionsPage() {
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No Active Contests</h3>
                 <p className="text-gray-600 mb-4">
-                  All recent quarterly data for {ticker} has been reported. 
-                  New prediction contests will open for future quarters.
+                  Recent quarterly earnings for {ticker} have already been reported. 
+                  New prediction contests will open closer to future earnings seasons.
                 </p>
-                <div className="text-sm text-gray-500">
-                  <p>Check back later for upcoming earnings seasons!</p>
+                <div className="text-sm text-gray-500 space-y-1">
+                  <p>Quarterly earnings are typically reported:</p>
+                  <p>• Q1 (Jan-Mar): By mid-May</p>
+                  <p>• Q2 (Apr-Jun): By mid-August</p>
+                  <p>• Q3 (Jul-Sep): By mid-November</p>
+                  <p>• Q4 (Oct-Dec): By mid-March of next year</p>
                 </div>
               </div>
             )}
@@ -387,10 +411,10 @@ export default function TickerPredictionsPage() {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center">
                         <span className="font-medium text-gray-900 mr-2">
-                          {prediction.contestId.includes('q1') ? 'Q1' :
-                           prediction.contestId.includes('q2') ? 'Q2' :
-                           prediction.contestId.includes('q3') ? 'Q3' : 'Q4'} 
-                          {prediction.contestId.slice(-4)}
+                          {prediction.contestId?.includes('q1') ? 'Q1' :
+                           prediction.contestId?.includes('q2') ? 'Q2' :
+                           prediction.contestId?.includes('q3') ? 'Q3' : 'Q4'} 
+                          {prediction.contestId?.slice(-4) || ''}
                         </span>
                         <span className="text-sm px-2 py-1 bg-blue-100 text-blue-800 rounded">
                           {getPredictionTypeLabel(prediction.predictionType)}
