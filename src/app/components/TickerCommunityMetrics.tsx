@@ -206,6 +206,12 @@ export default function TickerCommunityMetrics({ ticker, sector }: TickerCommuni
         >
           📊 Make Predictions
         </button>
+        <button
+          onClick={() => router.push(`/${ticker}/community`)}
+          className="mt-2 w-full bg-gray-100 text-gray-700 py-2 px-3 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+        >
+          👥 View Community Predictions
+        </button>
       </div>
     </div>
   );

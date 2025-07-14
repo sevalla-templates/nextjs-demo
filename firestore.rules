@@ -1,0 +1,64 @@
+// Firestore Security Rules for thebottomtick
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection
+    match /users/{userId} {
+      allow read: if true; // Public user profiles
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Predictions collection
+    match /predictions/{predictionId} {
+      allow read: if true; // Public predictions
+      allow create: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow update: if request.auth != null && 
+        (request.auth.uid == resource.data.userId || // User can update their own
+         request.auth.uid != null); // Or any authenticated user can like
+    }
+    
+    // Prediction comments
+    match /predictionComments/{commentId} {
+      allow read: if true; // Public comments
+      allow create: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Prediction likes
+    match /predictionLikes/{likeId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Ticker chat
+    match /tickerChat/{messageId} {
+      allow read: if true; // Public chat messages
+      allow create: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Votes collection
+    match /votes/{voteId} {
+      allow read: if true; // Public votes
+      allow create: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow update: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Watchlists
+    match /watchlists/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Daily metrics
+    match /dailyMetrics/{metricId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}
