@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import { useRouter } from 'next/navigation';
 
 interface DashboardMetrics {
   growthVotesToday: number;
@@ -19,6 +20,7 @@ interface TrendingStock {
 }
 
 export default function CommunityMetrics() {
+  const router = useRouter();
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     growthVotesToday: 0,
     declineVotesToday: 0,
@@ -28,6 +30,10 @@ export default function CommunityMetrics() {
   const [topGrowthStocks, setTopGrowthStocks] = useState<TrendingStock[]>([]);
   const [topDeclineStocks, setTopDeclineStocks] = useState<TrendingStock[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const handleStockClick = (ticker: string) => {
+    router.push(`/${ticker}`);
+  };
 
   // Get today's date in YYYY-MM-DD format
   const today = new Date().toISOString().split('T')[0];
@@ -217,7 +223,11 @@ export default function CommunityMetrics() {
             {topGrowthStocks.length > 0 ? (
               <div className="space-y-3">
                 {topGrowthStocks.map((stock, index) => (
-                  <div key={stock.ticker} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                  <div 
+                    key={stock.ticker} 
+                    className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 cursor-pointer transition-colors"
+                    onClick={() => handleStockClick(stock.ticker)}
+                  >
                     <div className="flex items-center">
                       <span className="flex items-center justify-center w-6 h-6 bg-green-600 text-white text-xs font-bold rounded-full mr-3">
                         {index + 1}
@@ -265,7 +275,11 @@ export default function CommunityMetrics() {
             {topDeclineStocks.length > 0 ? (
               <div className="space-y-3">
                 {topDeclineStocks.map((stock, index) => (
-                  <div key={stock.ticker} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
+                  <div 
+                    key={stock.ticker} 
+                    className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200 hover:bg-red-100 cursor-pointer transition-colors"
+                    onClick={() => handleStockClick(stock.ticker)}
+                  >
                     <div className="flex items-center">
                       <span className="flex items-center justify-center w-6 h-6 bg-red-600 text-white text-xs font-bold rounded-full mr-3">
                         {index + 1}

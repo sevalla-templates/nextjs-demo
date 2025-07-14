@@ -3,18 +3,28 @@
 import { useAuth } from '../../contexts/AuthContext';
 import { useUserProfile } from '../../hooks/useFirestore';
 import { useWatchlist } from '../../hooks/useWatchlist';
-import ProtectedRoute from '../../components/ProtectedRoute';
 import UserBadges from '../components/UserBadges';
 import UserCredibilitySystem from '../components/UserCredibilitySystem';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { profile, loading: profileLoading } = useUserProfile();
   const { watchlist, loading: watchlistLoading, removeFromWatchlist, getWatchlistByType } = useWatchlist();
   const [activeTab, setActiveTab] = useState('overview');
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!loading && !user && mounted) {
+      router.push('/landing');
+    }
+  }, [user, loading, mounted, router]);
 
   const handleTickerClick = (ticker: string) => {
     router.push(`/${ticker}`);
@@ -26,6 +36,21 @@ export default function DashboardPage() {
 
   const growthStocks = getWatchlistByType('growth');
   const declineStocks = getWatchlistByType('decline');
+
+  if (loading || !mounted) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   if (profileLoading || watchlistLoading) {
     return (
@@ -39,73 +64,70 @@ export default function DashboardPage() {
   }
 
   return (
-    <ProtectedRoute requireAuth={true}>
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-8">
-          {/* Welcome Header */}
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">
-                  Welcome back, {user?.displayName?.split(' ')[0] || 'User'}!
-                </h1>
-                <p className="text-gray-600">
-                  Ready to explore financial insights and track your investments?
-                </p>
-              </div>
-              <div className="flex items-center space-x-4">
-                <img
-                  src={user?.photoURL || '/default-avatar.png'}
-                  alt="Profile"
-                  className="w-12 h-12 rounded-full"
-                />
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">{profile?.subscription.plan}</p>
-                  <p className="text-xs text-gray-500">Plan</p>
-                </div>
-              </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
+        {/* Welcome Header */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Welcome back, {user?.displayName?.split(' ')[0] || 'User'}!
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Track your analysis, manage your watchlists, and see your progress
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => router.push('/search')}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Analyze New Stock
+              </button>
             </div>
           </div>
+        </div>
 
-          {/* Navigation Tabs */}
-          <div className="bg-white rounded-lg shadow-sm mb-8">
-            <nav className="flex space-x-8 px-6 py-4">
+        {/* Tab Navigation */}
+        <div className="bg-white rounded-lg shadow-sm mb-8">
+          <div className="border-b border-gray-200">
+            <div className="flex space-x-8 px-6">
               <button
                 onClick={() => setActiveTab('overview')}
-                className={`py-2 px-4 rounded-lg font-medium transition-colors ${
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'overview'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
                 Overview
               </button>
               <button
-                onClick={() => setActiveTab('search')}
-                className={`py-2 px-4 rounded-lg font-medium transition-colors ${
-                  activeTab === 'search'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:text-gray-900'
+                onClick={() => setActiveTab('watchlist')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'watchlist'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Search Stocks
+                Watchlist ({watchlist.length})
               </button>
               <button
-                onClick={() => setActiveTab('watchlists')}
-                className={`py-2 px-4 rounded-lg font-medium transition-colors ${
-                  activeTab === 'watchlists'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:text-gray-900'
+                onClick={() => setActiveTab('activity')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'activity'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Watchlists
+                Activity
               </button>
-            </nav>
+            </div>
           </div>
 
           {/* Content Area */}
           {activeTab === 'overview' && (
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-3 gap-6 p-6">
               {/* User Stats & Badges */}
               <UserBadges />
 
@@ -128,159 +150,131 @@ export default function DashboardPage() {
                       {declineStocks.length}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Total Watched</span>
+                  <div className="flex justify-between pt-2 border-t">
+                    <span className="text-gray-900 font-medium">Total Tracked</span>
                     <span className="font-semibold text-blue-600">
-                      {growthStocks.length + declineStocks.length}
+                      {watchlist.length}
                     </span>
                   </div>
                 </div>
-              </div>
-
-              {/* Recent Growth Stocks */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Growth</h3>
-                {growthStocks.slice(0, 5).map((item, index) => (
-                  <div key={index} className="flex justify-between items-center py-2 cursor-pointer hover:bg-gray-50 rounded-lg px-2"
-                       onClick={() => handleTickerClick(item.ticker)}>
-                    <span className="font-medium text-gray-900">{item.ticker}</span>
-                    <span className="text-xs text-gray-500">
-                      {item.addedAt instanceof Date ? 
-                        item.addedAt.toLocaleDateString() : 
-                        new Date(item.addedAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                ))}
-                {growthStocks.length === 0 && (
-                  <p className="text-gray-500 text-sm">No growth stocks added yet</p>
-                )}
-              </div>
-
-              {/* Recent Decline Stocks */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Decline</h3>
-                {declineStocks.slice(0, 5).map((item, index) => (
-                  <div key={index} className="flex justify-between items-center py-2 cursor-pointer hover:bg-gray-50 rounded-lg px-2"
-                       onClick={() => handleTickerClick(item.ticker)}>
-                    <span className="font-medium text-gray-900">{item.ticker}</span>
-                    <span className="text-xs text-gray-500">
-                      {item.addedAt instanceof Date ? 
-                        item.addedAt.toLocaleDateString() : 
-                        new Date(item.addedAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                ))}
-                {declineStocks.length === 0 && (
-                  <p className="text-gray-500 text-sm">No decline stocks added yet</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'search' && (
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Search Financial Data</h3>
-              <p className="text-gray-600 mb-4">
-                Search for any stock ticker to view detailed financial analysis and add to your watchlists.
-              </p>
-              <div className="text-center py-8">
-                <a 
-                  href="/search"
-                  className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                <button
+                  onClick={() => setActiveTab('watchlist')}
+                  className="w-full mt-4 bg-blue-50 text-blue-600 py-2 rounded-lg hover:bg-blue-100 transition-colors"
                 >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  Go to Stock Search
-                </a>
-                <p className="text-sm text-gray-500 mt-4">
-                  Access the full stock search interface with financial visualizations
-                </p>
+                  View Full Watchlist
+                </button>
               </div>
             </div>
           )}
 
-          {activeTab === 'watchlists' && (
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Growth Watchlist */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-green-600 mb-4">
-                  Growth Watchlist ({growthStocks.length})
-                </h3>
-                <div className="space-y-3">
-                  {growthStocks.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                      <div 
-                        className="cursor-pointer flex-1"
-                        onClick={() => handleTickerClick(item.ticker)}
+          {activeTab === 'watchlist' && (
+            <div className="p-6">
+              <div className="space-y-6">
+                {/* Growth Watchlist */}
+                <div>
+                  <h3 className="text-lg font-semibold text-green-600 mb-4 flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                    Growth Watchlist ({growthStocks.length})
+                  </h3>
+                  {growthStocks.length > 0 ? (
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {growthStocks.map((item) => (
+                        <div key={item.ticker} className="bg-green-50 border border-green-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-semibold text-gray-900">{item.ticker}</h4>
+                            <button
+                              onClick={() => handleRemoveFromWatchlist(item.ticker)}
+                              className="text-red-500 hover:text-red-700 text-sm"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-3">Added on {new Date(item.addedAt).toLocaleDateString()}</p>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleTickerClick(item.ticker)}
+                              className="flex-1 bg-blue-600 text-white py-2 px-3 rounded text-sm hover:bg-blue-700 transition-colors"
+                            >
+                              View Analysis
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-gray-50 rounded-lg">
+                      <p className="text-gray-600">No growth stocks in your watchlist yet.</p>
+                      <button
+                        onClick={() => router.push('/search')}
+                        className="mt-4 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
                       >
-                        <span className="font-medium text-gray-900">{item.ticker}</span>
-                        <p className="text-xs text-gray-500">
-                          Added {item.addedAt instanceof Date ? 
-                            item.addedAt.toLocaleDateString() : 
-                            new Date(item.addedAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <button 
-                        onClick={() => handleRemoveFromWatchlist(item.ticker)}
-                        className="text-red-500 hover:text-red-700 text-sm ml-4"
-                      >
-                        Remove
+                        Find Growth Stocks
                       </button>
                     </div>
-                  ))}
-                  {growthStocks.length === 0 && (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500">No growth stocks in your watchlist</p>
-                      <p className="text-sm text-gray-400 mt-2">
-                        Search for stocks and mark them as growth opportunities
-                      </p>
+                  )}
+                </div>
+
+                {/* Decline Watchlist */}
+                <div>
+                  <h3 className="text-lg font-semibold text-red-600 mb-4 flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                    </svg>
+                    Decline Watchlist ({declineStocks.length})
+                  </h3>
+                  {declineStocks.length > 0 ? (
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {declineStocks.map((item) => (
+                        <div key={item.ticker} className="bg-red-50 border border-red-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-semibold text-gray-900">{item.ticker}</h4>
+                            <button
+                              onClick={() => handleRemoveFromWatchlist(item.ticker)}
+                              className="text-red-500 hover:text-red-700 text-sm"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-3">Added on {new Date(item.addedAt).toLocaleDateString()}</p>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleTickerClick(item.ticker)}
+                              className="flex-1 bg-blue-600 text-white py-2 px-3 rounded text-sm hover:bg-blue-700 transition-colors"
+                            >
+                              View Analysis
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-gray-50 rounded-lg">
+                      <p className="text-gray-600">No decline stocks in your watchlist yet.</p>
+                      <button
+                        onClick={() => router.push('/search')}
+                        className="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+                      >
+                        Find Decline Stocks
+                      </button>
                     </div>
                   )}
                 </div>
               </div>
+            </div>
+          )}
 
-              {/* Decline Watchlist */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-red-600 mb-4">
-                  Decline Watchlist ({declineStocks.length})
-                </h3>
-                <div className="space-y-3">
-                  {declineStocks.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
-                      <div 
-                        className="cursor-pointer flex-1"
-                        onClick={() => handleTickerClick(item.ticker)}
-                      >
-                        <span className="font-medium text-gray-900">{item.ticker}</span>
-                        <p className="text-xs text-gray-500">
-                          Added {item.addedAt instanceof Date ? 
-                            item.addedAt.toLocaleDateString() : 
-                            new Date(item.addedAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <button 
-                        onClick={() => handleRemoveFromWatchlist(item.ticker)}
-                        className="text-red-500 hover:text-red-700 text-sm ml-4"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                  {declineStocks.length === 0 && (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500">No decline stocks in your watchlist</p>
-                      <p className="text-sm text-gray-400 mt-2">
-                        Search for stocks and mark them as decline patterns
-                      </p>
-                    </div>
-                  )}
-                </div>
+          {activeTab === 'activity' && (
+            <div className="p-6">
+              <div className="text-center py-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Activity Feed</h3>
+                <p className="text-gray-600">Your recent analysis and voting activity will appear here</p>
               </div>
             </div>
           )}
         </div>
       </div>
-    </ProtectedRoute>
+    </div>
   );
 }

@@ -92,15 +92,66 @@ export default function ForecastingContests() {
     return Math.min(progress, 100);
   };
 
+  // Check if financial data is available for a given quarter
+  const checkQuarterDataAvailability = (quarter: number, year: number): boolean => {
+    const now = new Date();
+    
+    // Calculate the typical earnings reporting deadline for each quarter
+    // Q1 ends March 31, reports by May 15
+    // Q2 ends June 30, reports by August 15  
+    // Q3 ends September 30, reports by November 15
+    // Q4 ends December 31, reports by March 15 (next year)
+    
+    const quarterEndDates = {
+      1: new Date(year, 2, 31), // March 31
+      2: new Date(year, 5, 30), // June 30
+      3: new Date(year, 8, 30), // September 30
+      4: new Date(year, 11, 31) // December 31
+    };
+    
+    const reportingDeadlines = {
+      1: new Date(year, 4, 15), // May 15
+      2: new Date(year, 7, 15), // August 15
+      3: new Date(year, 10, 15), // November 15
+      4: new Date(year + 1, 2, 15) // March 15 (next year)
+    };
+    
+    const quarterEndDate = quarterEndDates[quarter as keyof typeof quarterEndDates];
+    const reportingDeadline = reportingDeadlines[quarter as keyof typeof reportingDeadlines];
+    
+    // If we haven't reached the quarter end date, predictions are allowed
+    if (now < quarterEndDate) {
+      return false;
+    }
+    
+    // If we're past the reporting deadline, data should be available
+    if (now > reportingDeadline) {
+      return true;
+    }
+    
+    // If we're between quarter end and reporting deadline, 
+    // assume data is not yet available (most companies need time to report)
+    return false;
+  };
+
   useEffect(() => {
     // Initialize current contest
     const now = new Date();
     const currentQuarter = Math.ceil((now.getMonth() + 1) / 3);
     const currentYear = now.getFullYear();
     
-    // Create demo contests
-    const demoContests: Contest[] = [
-      {
+    // Check data availability for current and next quarter
+    const currentQuarterHasData = checkQuarterDataAvailability(currentQuarter, currentYear);
+    const nextQuarter = currentQuarter === 4 ? 1 : currentQuarter + 1;
+    const nextYear = currentQuarter === 4 ? currentYear + 1 : currentYear;
+    const nextQuarterHasData = checkQuarterDataAvailability(nextQuarter, nextYear);
+    
+    // Create demo contests - only allow predictions for quarters without data
+    const demoContests: Contest[] = [];
+    
+    // Add current quarter contest only if data is NOT available
+    if (!currentQuarterHasData) {
+      demoContests.push({
         id: `q${currentQuarter}-${currentYear}`,
         quarter: `Q${currentQuarter}`,
         year: currentYear,
@@ -109,18 +160,39 @@ export default function ForecastingContests() {
         endDate: new Date(currentYear, currentQuarter * 3, 0),
         description: `Predict earnings and stock performance for Q${currentQuarter} ${currentYear}`,
         participantCount: Math.floor(Math.random() * 500) + 200
-      },
-      {
-        id: `q${currentQuarter + 1}-${currentYear}`,
-        quarter: `Q${currentQuarter + 1}`,
-        year: currentYear,
-        status: 'upcoming',
-        startDate: new Date(currentYear, currentQuarter * 3, 1),
-        endDate: new Date(currentYear, (currentQuarter + 1) * 3, 0),
-        description: `Predict earnings and stock performance for Q${currentQuarter + 1} ${currentYear}`,
+      });
+    }
+    
+    // Add next quarter contest only if data is NOT available
+    if (!nextQuarterHasData) {
+      demoContests.push({
+        id: `q${nextQuarter}-${nextYear}`,
+        quarter: `Q${nextQuarter}`,
+        year: nextYear,
+        status: currentQuarterHasData ? 'active' : 'upcoming',
+        startDate: new Date(nextYear, (nextQuarter - 1) * 3, 1),
+        endDate: new Date(nextYear, nextQuarter * 3, 0),
+        description: `Predict earnings and stock performance for Q${nextQuarter} ${nextYear}`,
         participantCount: 0
-      }
-    ];
+      });
+    }
+    
+    // If no valid contests, add a future quarter
+    if (demoContests.length === 0) {
+      const futureQuarter = nextQuarter === 4 ? 1 : nextQuarter + 1;
+      const futureYear = nextQuarter === 4 ? nextYear + 1 : nextYear;
+      
+      demoContests.push({
+        id: `q${futureQuarter}-${futureYear}`,
+        quarter: `Q${futureQuarter}`,
+        year: futureYear,
+        status: 'upcoming',
+        startDate: new Date(futureYear, (futureQuarter - 1) * 3, 1),
+        endDate: new Date(futureYear, futureQuarter * 3, 0),
+        description: `Predict earnings and stock performance for Q${futureQuarter} ${futureYear}`,
+        participantCount: 0
+      });
+    }
 
     setContests(demoContests);
     setActiveContest(demoContests[0]);
@@ -142,7 +214,7 @@ export default function ForecastingContests() {
         setUserPredictions(predictions);
 
         // Calculate user stats
-        const contestPredictions = predictions.filter(p => p.contestId === demoContests[0].id);
+        const contestPredictions = predictions.filter(p => p.contestId === demoContests[0]?.id);
         const correctPredictions = contestPredictions.filter(p => p.isCorrect).length;
         const totalPredictions = contestPredictions.length;
         const totalPoints = contestPredictions.reduce((sum, p) => sum + p.points, 0);
@@ -289,7 +361,12 @@ export default function ForecastingContests() {
           </div>
           <button
             onClick={() => setShowPredictionForm(true)}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={contests.length === 0}
+            className={`inline-flex items-center px-4 py-2 rounded-lg transition-colors ${
+              contests.length === 0
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
           >
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -300,37 +377,59 @@ export default function ForecastingContests() {
       </div>
 
       <div className="p-6">
-        {/* Contest Selection */}
-        <div className="mb-6">
-          <div className="flex space-x-4">
-            {contests.map((contest) => (
-              <button
-                key={contest.id}
-                onClick={() => setActiveContest(contest)}
-                className={`flex-1 p-4 rounded-lg border-2 transition-colors ${
-                  activeContest?.id === contest.id 
-                    ? 'border-blue-500 bg-blue-50' 
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-gray-900">{contest.quarter} {contest.year}</h4>
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(contest.status)}`}>
-                    {contest.status}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600 mb-2">{contest.description}</p>
-                <div className="flex justify-between text-sm text-gray-500">
-                  <span>Ends: {formatDate(contest.endDate)}</span>
-                  <span>{contest.participantCount} participants</span>
-                </div>
-              </button>
-            ))}
+        {/* No Contests Available Message */}
+        {contests.length === 0 && (
+          <div className="text-center py-12">
+            <div className="mb-4">
+              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Active Contests</h3>
+            <p className="text-gray-500 mb-4">
+              All current quarters have already reported their financial results.
+              <br />
+              New prediction contests will be available for upcoming quarters.
+            </p>
+            <div className="text-sm text-gray-400">
+              Financial data is typically available 45-75 days after quarter end.
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Contest Selection */}
+        {contests.length > 0 && (
+          <div className="mb-6">
+            <div className="flex space-x-4">
+              {contests.map((contest) => (
+                <button
+                  key={contest.id}
+                  onClick={() => setActiveContest(contest)}
+                  className={`flex-1 p-4 rounded-lg border-2 transition-colors ${
+                    activeContest?.id === contest.id 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium text-gray-900">{contest.quarter} {contest.year}</h4>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(contest.status)}`}>
+                      {contest.status}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">{contest.description}</p>
+                  <div className="flex justify-between text-sm text-gray-500">
+                    <span>Ends: {formatDate(contest.endDate)}</span>
+                    <span>{contest.participantCount} participants</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* User Stats */}
-        {userStats && (
+        {userStats && contests.length > 0 && (
           <div className="grid grid-cols-4 gap-4 mb-6">
             <div className="text-center p-4 bg-gray-50 rounded-lg">
               <div className="text-2xl font-bold text-gray-900">#{userStats.rank}</div>
@@ -352,7 +451,7 @@ export default function ForecastingContests() {
         )}
 
         {/* Current Rank Display */}
-        {userStats && (
+        {userStats && contests.length > 0 && (
           <div className="mb-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center">
@@ -388,7 +487,7 @@ export default function ForecastingContests() {
         )}
 
         {/* User Predictions */}
-        {userPredictions.length > 0 && (
+        {userPredictions.length > 0 && contests.length > 0 && (
           <div>
             <h4 className="font-medium text-gray-900 mb-3">Your Predictions</h4>
             <div className="space-y-3">
