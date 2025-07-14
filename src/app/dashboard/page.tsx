@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useUserProfile } from '../../hooks/useFirestore';
 import { useWatchlist } from '../../hooks/useWatchlist';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import UserBadges from '../components/UserBadges';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -104,9 +105,12 @@ export default function DashboardPage() {
           {/* Content Area */}
           {activeTab === 'overview' && (
             <div className="grid md:grid-cols-3 gap-6">
+              {/* User Stats & Badges */}
+              <UserBadges />
+
               {/* Quick Stats */}
               <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Activity</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Watchlists</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Growth Stocks</span>
