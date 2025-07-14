@@ -72,6 +72,37 @@ class FirestoreService {
     return null;
   }
 
+  // Optimized method to get or create user profile in one call
+  async getOrCreateUserProfile(user: any): Promise<UserProfile> {
+    const userRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists()) {
+      return userDoc.data() as UserProfile;
+    }
+    
+    // Create new user profile
+    const newUser: UserProfile = {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      subscription: {
+        plan: 'free',
+        status: 'active'
+      },
+      watchlists: {
+        growth: [],
+        decline: []
+      }
+    };
+    
+    await setDoc(userRef, newUser);
+    return newUser;
+  }
+
   async updateUserProfile(uid: string, updates: Partial<UserProfile>): Promise<void> {
     const userRef = doc(db, 'users', uid);
     await updateDoc(userRef, {

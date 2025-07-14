@@ -1,8 +1,7 @@
 'use client';
 
 import { useAuth } from '../../contexts/AuthContext';
-import { useUserProfile } from '../../hooks/useFirestore';
-import { useWatchlist } from '../../hooks/useWatchlist';
+import { useDashboardData } from '../../hooks/useFirestore';
 import UserBadges from '../components/UserBadges';
 import UserCredibilitySystem from '../components/UserCredibilitySystem';
 import { useState, useEffect } from 'react';
@@ -10,8 +9,13 @@ import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
-  const { profile, loading: profileLoading } = useUserProfile();
-  const { watchlist, loading: watchlistLoading, removeFromWatchlist, getWatchlistByType } = useWatchlist();
+  const { 
+    profile, 
+    watchlist, 
+    loading: dashboardLoading, 
+    removeFromWatchlist, 
+    getWatchlistByType 
+  } = useDashboardData();
   const [activeTab, setActiveTab] = useState('overview');
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
@@ -37,7 +41,15 @@ export default function DashboardPage() {
   };
 
   const handleRemoveFromWatchlist = async (ticker: string) => {
-    await removeFromWatchlist(ticker);
+    // Find the ticker in watchlist to determine its type
+    const growthItem = watchlist.growth.find(item => item.ticker === ticker);
+    const declineItem = watchlist.decline.find(item => item.ticker === ticker);
+    
+    if (growthItem) {
+      await removeFromWatchlist(ticker, 'growth');
+    } else if (declineItem) {
+      await removeFromWatchlist(ticker, 'decline');
+    }
   };
 
   const growthStocks = getWatchlistByType('growth');
@@ -58,8 +70,8 @@ export default function DashboardPage() {
     return null;
   }
 
-  // Show loading only if both profile and watchlist are still loading
-  if (profileLoading && watchlistLoading) {
+  // Show loading only if dashboard data is still loading
+  if (dashboardLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -117,7 +129,7 @@ export default function DashboardPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Watchlist ({watchlist.length})
+                Watchlist ({watchlist.growth.length + watchlist.decline.length})
               </button>
               <button
                 onClick={() => setActiveTab('activity')}
@@ -160,7 +172,7 @@ export default function DashboardPage() {
                   <div className="flex justify-between pt-2 border-t">
                     <span className="text-gray-900 font-medium">Total Tracked</span>
                     <span className="font-semibold text-blue-600">
-                      {watchlist.length}
+                      {watchlist.growth.length + watchlist.decline.length}
                     </span>
                   </div>
                 </div>

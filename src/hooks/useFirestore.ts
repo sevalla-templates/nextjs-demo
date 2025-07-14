@@ -11,7 +11,6 @@ export const useUserProfile = () => {
 
   useEffect(() => {
     if (user) {
-      setLoading(true); // Reset loading state when user changes
       loadUserProfile();
     } else {
       setProfile(null);
@@ -23,11 +22,8 @@ export const useUserProfile = () => {
     if (!user) return;
     
     try {
-      // Create user profile if it doesn't exist
-      await firestoreService.createUserProfile(user);
-      
-      // Load user profile
-      const userProfile = await firestoreService.getUserProfile(user.uid);
+      // Use optimized method that gets or creates profile in one call
+      const userProfile = await firestoreService.getOrCreateUserProfile(user);
       setProfile(userProfile);
     } catch (error) {
       console.error('Error loading user profile:', error);
@@ -41,9 +37,12 @@ export const useUserProfile = () => {
     
     try {
       await firestoreService.updateUserProfile(user.uid, updates);
-      await loadUserProfile(); // Reload profile
+      // Optimistic update - update local state immediately
+      setProfile(prev => prev ? { ...prev, ...updates } : null);
     } catch (error) {
       console.error('Error updating profile:', error);
+      // Reload on error
+      await loadUserProfile();
     }
   };
 
@@ -60,7 +59,6 @@ export const useWatchlist = () => {
 
   useEffect(() => {
     if (user) {
-      setLoading(true); // Reset loading state when user changes
       loadWatchlist();
     } else {
       setWatchlist({ growth: [], decline: [] });
@@ -85,10 +83,17 @@ export const useWatchlist = () => {
     if (!user) return;
     
     try {
+      // Optimistic update - update local state immediately
+      setWatchlist(prev => ({
+        ...prev,
+        [type]: [...prev[type], { ticker, addedAt: new Date(), type }]
+      }));
+      
       await firestoreService.addToWatchlist(user.uid, ticker, type);
-      await loadWatchlist(); // Reload watchlist
     } catch (error) {
       console.error('Error adding to watchlist:', error);
+      // Revert on error
+      await loadWatchlist();
     }
   };
 
@@ -96,15 +101,26 @@ export const useWatchlist = () => {
     if (!user) return;
     
     try {
+      // Optimistic update - update local state immediately
+      setWatchlist(prev => ({
+        ...prev,
+        [type]: prev[type].filter(item => item.ticker !== ticker)
+      }));
+      
       await firestoreService.removeFromWatchlist(user.uid, ticker, type);
-      await loadWatchlist(); // Reload watchlist
     } catch (error) {
       console.error('Error removing from watchlist:', error);
+      // Revert on error
+      await loadWatchlist();
     }
   };
 
   const isInWatchlist = (ticker: string, type: 'growth' | 'decline') => {
     return watchlist[type].some(item => item.ticker === ticker);
+  };
+
+  const getWatchlistByType = (type: 'growth' | 'decline') => {
+    return watchlist[type];
   };
 
   return {
@@ -113,6 +129,111 @@ export const useWatchlist = () => {
     addToWatchlist,
     removeFromWatchlist,
     isInWatchlist,
+    getWatchlistByType,
     refetch: loadWatchlist
+  };
+};
+
+// Combined hook for dashboard - loads profile and watchlist in parallel
+export const useDashboardData = () => {
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [watchlist, setWatchlist] = useState<{ growth: WatchlistItem[], decline: WatchlistItem[] }>({
+    growth: [],
+    decline: []
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      loadDashboardData();
+    } else {
+      setProfile(null);
+      setWatchlist({ growth: [], decline: [] });
+      setLoading(false);
+    }
+  }, [user]);
+
+  const loadDashboardData = async () => {
+    if (!user) return;
+    
+    try {
+      // Load profile and watchlist in parallel
+      const [userProfile, userWatchlist] = await Promise.all([
+        firestoreService.getOrCreateUserProfile(user),
+        firestoreService.getWatchlist(user.uid)
+      ]);
+      
+      setProfile(userProfile);
+      setWatchlist(userWatchlist);
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateProfile = async (updates: Partial<UserProfile>) => {
+    if (!user) return;
+    
+    try {
+      await firestoreService.updateUserProfile(user.uid, updates);
+      setProfile(prev => prev ? { ...prev, ...updates } : null);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      await loadDashboardData();
+    }
+  };
+
+  const addToWatchlist = async (ticker: string, type: 'growth' | 'decline') => {
+    if (!user) return;
+    
+    try {
+      setWatchlist(prev => ({
+        ...prev,
+        [type]: [...prev[type], { ticker, addedAt: new Date(), type }]
+      }));
+      
+      await firestoreService.addToWatchlist(user.uid, ticker, type);
+    } catch (error) {
+      console.error('Error adding to watchlist:', error);
+      await loadDashboardData();
+    }
+  };
+
+  const removeFromWatchlist = async (ticker: string, type: 'growth' | 'decline') => {
+    if (!user) return;
+    
+    try {
+      setWatchlist(prev => ({
+        ...prev,
+        [type]: prev[type].filter(item => item.ticker !== ticker)
+      }));
+      
+      await firestoreService.removeFromWatchlist(user.uid, ticker, type);
+    } catch (error) {
+      console.error('Error removing from watchlist:', error);
+      await loadDashboardData();
+    }
+  };
+
+  const isInWatchlist = (ticker: string, type: 'growth' | 'decline') => {
+    return watchlist[type].some(item => item.ticker === ticker);
+  };
+
+  const getWatchlistByType = (type: 'growth' | 'decline') => {
+    return watchlist[type];
+  };
+
+  return {
+    profile,
+    watchlist,
+    loading,
+    updateProfile,
+    addToWatchlist,
+    removeFromWatchlist,
+    isInWatchlist,
+    getWatchlistByType,
+    refetch: loadDashboardData
   };
 };
