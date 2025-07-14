@@ -134,6 +134,15 @@ export const useWatchlist = () => {
   };
 };
 
+// Cache for dashboard data
+const dashboardCache = new Map<string, {
+  profile: UserProfile;
+  watchlist: { growth: WatchlistItem[], decline: WatchlistItem[] };
+  timestamp: number;
+}>();
+
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 // Combined hook for dashboard - loads profile and watchlist in parallel
 export const useDashboardData = () => {
   const { user } = useAuth();
@@ -157,6 +166,19 @@ export const useDashboardData = () => {
   const loadDashboardData = async () => {
     if (!user) return;
     
+    // Check cache first
+    const cacheKey = user.uid;
+    const cached = dashboardCache.get(cacheKey);
+    const now = Date.now();
+    
+    if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+      // Use cached data for instant loading
+      setProfile(cached.profile);
+      setWatchlist(cached.watchlist);
+      setLoading(false);
+      return;
+    }
+    
     try {
       // Load profile and watchlist in parallel
       const [userProfile, userWatchlist] = await Promise.all([
@@ -166,6 +188,14 @@ export const useDashboardData = () => {
       
       setProfile(userProfile);
       setWatchlist(userWatchlist);
+      
+      // Cache the data
+      dashboardCache.set(cacheKey, {
+        profile: userProfile,
+        watchlist: userWatchlist,
+        timestamp: now
+      });
+      
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
@@ -179,6 +209,16 @@ export const useDashboardData = () => {
     try {
       await firestoreService.updateUserProfile(user.uid, updates);
       setProfile(prev => prev ? { ...prev, ...updates } : null);
+      
+      // Update cache
+      const cached = dashboardCache.get(user.uid);
+      if (cached) {
+        dashboardCache.set(user.uid, {
+          ...cached,
+          profile: { ...cached.profile, ...updates },
+          timestamp: Date.now()
+        });
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
       await loadDashboardData();
@@ -189,12 +229,26 @@ export const useDashboardData = () => {
     if (!user) return;
     
     try {
+      const newItem = { ticker, addedAt: new Date(), type };
       setWatchlist(prev => ({
         ...prev,
-        [type]: [...prev[type], { ticker, addedAt: new Date(), type }]
+        [type]: [...prev[type], newItem]
       }));
       
       await firestoreService.addToWatchlist(user.uid, ticker, type);
+      
+      // Update cache
+      const cached = dashboardCache.get(user.uid);
+      if (cached) {
+        dashboardCache.set(user.uid, {
+          ...cached,
+          watchlist: {
+            ...cached.watchlist,
+            [type]: [...cached.watchlist[type], newItem]
+          },
+          timestamp: Date.now()
+        });
+      }
     } catch (error) {
       console.error('Error adding to watchlist:', error);
       await loadDashboardData();
@@ -211,6 +265,19 @@ export const useDashboardData = () => {
       }));
       
       await firestoreService.removeFromWatchlist(user.uid, ticker, type);
+      
+      // Update cache
+      const cached = dashboardCache.get(user.uid);
+      if (cached) {
+        dashboardCache.set(user.uid, {
+          ...cached,
+          watchlist: {
+            ...cached.watchlist,
+            [type]: cached.watchlist[type].filter(item => item.ticker !== ticker)
+          },
+          timestamp: Date.now()
+        });
+      }
     } catch (error) {
       console.error('Error removing from watchlist:', error);
       await loadDashboardData();
@@ -225,6 +292,12 @@ export const useDashboardData = () => {
     return watchlist[type];
   };
 
+  const clearCache = () => {
+    if (user) {
+      dashboardCache.delete(user.uid);
+    }
+  };
+
   return {
     profile,
     watchlist,
@@ -234,6 +307,7 @@ export const useDashboardData = () => {
     removeFromWatchlist,
     isInWatchlist,
     getWatchlistByType,
-    refetch: loadDashboardData
+    refetch: loadDashboardData,
+    clearCache
   };
 };

@@ -73,10 +73,31 @@ export default function DashboardPage() {
   // Show loading only if dashboard data is still loading
   if (dashboardLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
+      <div className="min-h-screen bg-gray-50">
+        <div className="container mx-auto px-4 py-8">
+          {/* Show skeleton/partial content while loading */}
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">
+                  Welcome back, {user?.displayName?.split(' ')[0] || 'User'}!
+                </h1>
+                <p className="text-gray-600 mt-2">
+                  Loading your dashboard...
+                </p>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="animate-pulse bg-gray-200 h-10 w-32 rounded-lg"></div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading your data...</p>
+            </div>
+          </div>
         </div>
       </div>
     );
