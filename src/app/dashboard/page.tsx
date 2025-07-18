@@ -80,7 +80,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">
-                  Welcome back, {user?.displayName?.split(' ')[0] || 'User'}!
+                  Welcome back, {profile?.username || user?.displayName?.split(' ')[0] || 'User'}!
                 </h1>
                 <p className="text-gray-600 mt-2">
                   Loading your dashboard...
@@ -111,7 +111,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                Welcome back, {user?.displayName?.split(' ')[0] || 'User'}!
+                Welcome back, {profile?.username || user?.displayName?.split(' ')[0] || 'User'}!
               </h1>
               <p className="text-gray-600 mt-2">
                 Track your analysis, manage your watchlists, and see your progress

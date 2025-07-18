@@ -6,6 +6,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment, limit, getDocs } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { firestoreService } from '../../../lib/firestore';
+import Avatar from '../../../components/Avatar';
 import companyTickers from '../../../data/company_tickers.json';
 
 interface CompanyData {
@@ -305,15 +306,16 @@ export default function CommunityPredictionsPage() {
     if (!user || !newComment[predictionId]?.trim()) return;
     
     try {
-      // Use profile displayName if available, otherwise fall back to auth displayName
-      const displayName = userProfile?.displayName || user.displayName || 'Anonymous';
+      // Use custom username if available, otherwise fall back to auth displayName
+      const displayName = userProfile?.username || user.displayName || 'Anonymous';
+      const photoURL = userProfile?.customPhotoURL || user.photoURL || '👤';
       
       await addDoc(collection(db, 'predictionComments'), {
         predictionId,
         ticker: ticker,
         userId: user.uid,
         userName: displayName,
-        userPhoto: user.photoURL || '',
+        userPhoto: photoURL,
         comment: newComment[predictionId].trim(),
         timestamp: serverTimestamp(),
         likes: 0
@@ -507,10 +509,10 @@ export default function CommunityPredictionsPage() {
                       onClick={() => router.push(`/profile/${prediction.userId}`)}
                       className="flex-shrink-0"
                     >
-                      <img
+                      <Avatar 
                         src={prediction.userPhoto}
                         alt={prediction.userName}
-                        className="w-12 h-12 rounded-full"
+                        size="md"
                       />
                     </button>
                     
@@ -617,10 +619,11 @@ export default function CommunityPredictionsPage() {
                     <div className="space-y-3">
                       {comments[prediction.id]?.map((comment) => (
                         <div key={comment.id} className="flex space-x-3">
-                          <img
+                          <Avatar 
                             src={comment.userPhoto}
                             alt={comment.userName}
-                            className="w-8 h-8 rounded-full flex-shrink-0"
+                            size="sm"
+                            className="flex-shrink-0"
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center space-x-2">
@@ -637,10 +640,11 @@ export default function CommunityPredictionsPage() {
                     
                     {user && (
                       <div className="mt-4 flex space-x-3">
-                        <img
-                          src={user.photoURL || '/default-avatar.png'}
-                          alt={user.displayName || 'You'}
-                          className="w-8 h-8 rounded-full flex-shrink-0"
+                        <Avatar 
+                          src={userProfile?.customPhotoURL || user.photoURL || '👤'}
+                          alt={userProfile?.username || user.displayName || 'You'}
+                          size="sm"
+                          className="flex-shrink-0"
                         />
                         <div className="flex-1 flex space-x-2">
                           <input

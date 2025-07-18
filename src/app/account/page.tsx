@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { deleteUser } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import ProfileEditor from '../../components/ProfileEditor';
 
 export default function AccountPage() {
   const { user, logout } = useAuth();
@@ -54,20 +55,10 @@ export default function AccountPage() {
           </div>
 
           {/* User Profile */}
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Profile Information</h2>
-            <div className="flex items-center space-x-4">
-              <img
-                src={user?.photoURL || '/default-avatar.png'}
-                alt="Profile"
-                className="w-16 h-16 rounded-full"
-              />
-              <div>
-                <p className="font-semibold text-gray-900">{user?.displayName}</p>
-                <p className="text-gray-600">{user?.email}</p>
-              </div>
-            </div>
-          </div>
+          <ProfileEditor onProfileUpdate={() => {
+            // Optionally refresh data here
+            console.log('Profile updated!');
+          }} />
 
           {/* Subscription Section */}
           <div className="bg-white rounded-lg shadow-sm p-6 mb-8">

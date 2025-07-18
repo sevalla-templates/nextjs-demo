@@ -5,6 +5,7 @@ import { collection, query, where, onSnapshot, doc, setDoc } from 'firebase/fire
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
+import { firestoreService } from '../../../lib/firestore';
 import companyTickers from '../../../data/company_tickers.json';
 
 interface CompanyData {
@@ -53,6 +54,7 @@ export default function TickerPredictionsPage() {
   const [predictionType, setPredictionType] = useState<Prediction['predictionType']>('earnings_beat');
   const [confidence, setConfidence] = useState(50);
   const [reasoning, setReasoning] = useState('');
+  const [userProfile, setUserProfile] = useState<any>(null);
 
   // Check if financial data exists for a specific quarter
   const checkDataAvailability = async (ticker: string, quarter: number, year: number): Promise<boolean> => {
@@ -195,6 +197,14 @@ export default function TickerPredictionsPage() {
         setAvailableContests(contests);
         
         if (user) {
+          // Load user profile
+          try {
+            const profile = await firestoreService.getUserProfile(user.uid);
+            setUserProfile(profile);
+          } catch (error) {
+            console.error('Error loading user profile:', error);
+          }
+          
           // Listen to user's predictions for this ticker
           const predictionsQuery = query(
             collection(db, 'predictions'),
@@ -238,13 +248,20 @@ export default function TickerPredictionsPage() {
     const prediction = {
       id: predictionId,
       userId: user.uid,
+      userName: userProfile?.username || user.displayName || 'Anonymous',
+      userPhoto: userProfile?.customPhotoURL || user.photoURL || '👤',
+      userRank: 'Market Analyst',
+      userBadge: '📊',
       contestId: selectedContest.id,
       ticker: ticker,
       predictionType,
       confidence,
       reasoning,
       timestamp: new Date(),
-      points
+      points,
+      likes: 0,
+      replies: 0,
+      tags: []
     };
 
     try {

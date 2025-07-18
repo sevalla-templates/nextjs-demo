@@ -7,6 +7,9 @@ import {
   deleteDoc, 
   arrayUnion, 
   arrayRemove,
+  getDocs,
+  query,
+  where,
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -14,8 +17,10 @@ import { db } from './firebase';
 export interface UserProfile {
   uid: string;
   email: string;
-  displayName: string;
+  displayName: string; // From Google auth
+  username?: string; // Custom username set by user
   photoURL?: string;
+  customPhotoURL?: string; // Custom profile image URL
   createdAt: any;
   updatedAt: any;
   subscription: {
@@ -109,6 +114,23 @@ class FirestoreService {
       ...updates,
       updatedAt: serverTimestamp()
     });
+  }
+
+  async checkUsernameAvailability(username: string): Promise<boolean> {
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('username', '==', username));
+    const snapshot = await getDocs(q);
+    return snapshot.empty;
+  }
+
+  async updateUsername(uid: string, username: string): Promise<void> {
+    // First check if username is available
+    const isAvailable = await this.checkUsernameAvailability(username);
+    if (!isAvailable) {
+      throw new Error('Username is already taken');
+    }
+    
+    await this.updateUserProfile(uid, { username });
   }
 
   async deleteUserProfile(uid: string): Promise<void> {
