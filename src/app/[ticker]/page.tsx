@@ -6,7 +6,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import TickerDisplay from '../components/TickerDisplay';
 import TickerCommunityMetrics from '../components/TickerCommunityMetrics';
-import TickerChat from '../components/TickerChat';
 import { ArrowLeft } from 'lucide-react';
 import companyTickers from '../../data/company_tickers.json';
 
@@ -144,40 +143,16 @@ export default function TickerPage() {
             />
           </div>
 
-          {/* Two-column layout for content and chat */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Main content */}
-            <div className="lg:col-span-2">
-              {tickerData && (
-                <TickerDisplay
-                  ticker={ticker.toUpperCase()}
-                  data={tickerData}
-                  onClear={handleClear}
-                  viewType={viewType}
-                />
-              )}
-            </div>
-
-            {/* Chat sidebar */}
-            <div className="lg:col-span-1">
-              <TickerChat ticker={ticker.toUpperCase()} />
-              
-              {/* Community Predictions Link */}
-              <div className="mt-6">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                  <h3 className="font-semibold text-gray-900 mb-2">Community Predictions</h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    See what other analysts are predicting for {ticker.toUpperCase()}
-                  </p>
-                  <button
-                    onClick={() => router.push(`/${ticker}/community`)}
-                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    View All Predictions
-                  </button>
-                </div>
-              </div>
-            </div>
+          {/* Main content */}
+          <div className="w-full">
+            {tickerData && (
+              <TickerDisplay
+                ticker={ticker.toUpperCase()}
+                data={tickerData}
+                onClear={handleClear}
+                viewType={viewType}
+              />
+            )}
           </div>
         </div>
       </div>

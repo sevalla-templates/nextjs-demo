@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment, limit } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment, limit, getDocs } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import { firestoreService } from '../../../lib/firestore';
 import companyTickers from '../../../data/company_tickers.json';
 
 interface CompanyData {
@@ -76,6 +77,9 @@ export default function CommunityPredictionsPage() {
   const [sortBy, setSortBy] = useState<'newest' | 'confidence' | 'likes'>('newest');
   const [showComments, setShowComments] = useState<Record<string, boolean>>({});
   const [newComment, setNewComment] = useState<Record<string, string>>({});
+  const [userLikes, setUserLikes] = useState<Set<string>>(new Set());
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [showAllPredictions, setShowAllPredictions] = useState(false);
 
   useEffect(() => {
     if (!ticker) return;
@@ -89,6 +93,32 @@ export default function CommunityPredictionsPage() {
     }
     
     setCompany(companyData);
+
+    // Load user's likes if logged in
+    const loadUserLikes = async () => {
+      if (user) {
+        try {
+          // Load user profile for better display name
+          const profile = await firestoreService.getUserProfile(user.uid);
+          setUserProfile(profile);
+          
+          // Load user likes
+          const likesQuery = query(
+            collection(db, 'predictionLikes'),
+            where('userId', '==', user.uid)
+          );
+          const likesSnapshot = await getDocs(likesQuery);
+          const likedPredictions = new Set(
+            likesSnapshot.docs.map(doc => doc.data().predictionId)
+          );
+          setUserLikes(likedPredictions);
+        } catch (error) {
+          console.error('Error loading user data:', error);
+        }
+      }
+    };
+
+    loadUserLikes();
 
     // Load predictions - modify query to avoid composite index
     const predictionsQuery = query(
@@ -180,7 +210,20 @@ export default function CommunityPredictionsPage() {
       unsubscribePredictions();
       unsubscribeComments();
     };
-  }, [ticker, router]);
+  }, [ticker, router, user]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Close all open comment sections
+        setShowComments({});
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    return () => document.removeEventListener('keydown', handleKeyPress);
+  }, []);
 
   const getPredictionTypeLabel = (type: string) => {
     switch (type) {
@@ -209,6 +252,20 @@ export default function CommunityPredictionsPage() {
     }
   };
 
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 80) return 'text-green-600 bg-green-100';
+    if (confidence >= 60) return 'text-blue-600 bg-blue-100';
+    if (confidence >= 40) return 'text-yellow-600 bg-yellow-100';
+    return 'text-red-600 bg-red-100';
+  };
+
+  const getConfidenceLabel = (confidence: number) => {
+    if (confidence >= 80) return 'Very High';
+    if (confidence >= 60) return 'High';
+    if (confidence >= 40) return 'Medium';
+    return 'Low';
+  };
+
   const getResultBadge = (isCorrect?: boolean) => {
     if (isCorrect === undefined) return <span className="text-gray-500 text-sm">Pending</span>;
     return isCorrect ? 
@@ -219,18 +276,26 @@ export default function CommunityPredictionsPage() {
   const handleLikePrediction = async (predictionId: string) => {
     if (!user) return;
     
+    // Check if user has already liked this prediction
+    if (userLikes.has(predictionId)) {
+      return; // User has already liked this prediction
+    }
+    
     try {
       const predictionRef = doc(db, 'predictions', predictionId);
       await updateDoc(predictionRef, {
         likes: increment(1)
       });
       
-      // Also track user's like (in real app, prevent duplicate likes)
+      // Track user's like to prevent duplicates
       await addDoc(collection(db, 'predictionLikes'), {
         predictionId,
         userId: user.uid,
         timestamp: serverTimestamp()
       });
+
+      // Update local state to reflect the like
+      setUserLikes(prev => new Set(prev).add(predictionId));
     } catch (error) {
       console.error('Error liking prediction:', error);
     }
@@ -240,11 +305,14 @@ export default function CommunityPredictionsPage() {
     if (!user || !newComment[predictionId]?.trim()) return;
     
     try {
+      // Use profile displayName if available, otherwise fall back to auth displayName
+      const displayName = userProfile?.displayName || user.displayName || 'Anonymous';
+      
       await addDoc(collection(db, 'predictionComments'), {
         predictionId,
         ticker: ticker,
         userId: user.uid,
-        userName: user.displayName || 'Anonymous',
+        userName: displayName,
         userPhoto: user.photoURL || '',
         comment: newComment[predictionId].trim(),
         timestamp: serverTimestamp(),
@@ -260,6 +328,26 @@ export default function CommunityPredictionsPage() {
       setNewComment(prev => ({ ...prev, [predictionId]: '' }));
     } catch (error) {
       console.error('Error adding comment:', error);
+    }
+  };
+
+  const handleReportPrediction = async (predictionId: string) => {
+    if (!user) return;
+    
+    try {
+      await addDoc(collection(db, 'reports'), {
+        type: 'prediction',
+        contentId: predictionId,
+        reportedBy: user.uid,
+        reason: 'inappropriate_content', // Could be expanded with a modal for specific reasons
+        timestamp: serverTimestamp(),
+        status: 'pending'
+      });
+      
+      alert('Report submitted. Thank you for helping keep our community safe.');
+    } catch (error) {
+      console.error('Error reporting prediction:', error);
+      alert('Error submitting report. Please try again.');
     }
   };
 
@@ -294,6 +382,9 @@ export default function CommunityPredictionsPage() {
     }
   });
 
+  // Limit predictions shown initially
+  const displayedPredictions = showAllPredictions ? sortedPredictions : sortedPredictions.slice(0, 10);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -312,6 +403,14 @@ export default function CommunityPredictionsPage() {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
           <div className="flex items-center justify-between">
             <div>
+              <div className="flex items-center space-x-4 mb-3">
+                <button
+                  onClick={() => router.push(`/${ticker}`)}
+                  className="text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  ← Back to {ticker} Overview
+                </button>
+              </div>
               <h1 className="text-3xl font-bold text-gray-900">
                 {ticker} Community Predictions
               </h1>
@@ -385,21 +484,22 @@ export default function CommunityPredictionsPage() {
             </div>
             
             <div className="text-sm text-gray-500">
-              Showing {sortedPredictions.length} of {predictions.length} predictions
+              Showing {displayedPredictions.length} of {predictions.length} predictions
             </div>
           </div>
         </div>
 
         {/* Predictions List */}
         <div className="space-y-6">
-          {sortedPredictions.length === 0 ? (
+          {displayedPredictions.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm p-8 text-center">
               <div className="text-gray-400 text-4xl mb-4">🔮</div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">No predictions yet</h3>
               <p className="text-gray-600">Be the first to make a prediction for {ticker}!</p>
             </div>
           ) : (
-            sortedPredictions.map((prediction) => (
+            <>
+              {displayedPredictions.map((prediction) => (
               <div key={prediction.id} className="bg-white rounded-lg shadow-sm border border-gray-200">
                 <div className="p-6">
                   <div className="flex items-start space-x-4">
@@ -440,15 +540,23 @@ export default function CommunityPredictionsPage() {
                       
                       <div className="mb-4">
                         <div className="flex items-center space-x-4 mb-2">
-                          <span className="text-sm text-gray-600">
-                            Confidence: <span className="font-semibold">{prediction.confidence}%</span>
-                          </span>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-600">Confidence:</span>
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getConfidenceColor(prediction.confidence)}`}>
+                              {prediction.confidence}% ({getConfidenceLabel(prediction.confidence)})
+                            </span>
+                          </div>
                           <span className="text-sm text-gray-600">
                             Points: <span className="font-semibold text-purple-600">{prediction.points}</span>
                           </span>
                           {prediction.timeframe && (
                             <span className="text-sm text-gray-600">
                               Timeframe: <span className="font-semibold">{prediction.timeframe}</span>
+                            </span>
+                          )}
+                          {prediction.targetPrice && (
+                            <span className="text-sm text-gray-600">
+                              Target: <span className="font-semibold text-green-600">${prediction.targetPrice}</span>
                             </span>
                           )}
                         </div>
@@ -460,19 +568,35 @@ export default function CommunityPredictionsPage() {
                         <div className="flex items-center space-x-4">
                           <button
                             onClick={() => handleLikePrediction(prediction.id)}
-                            className="flex items-center space-x-1 text-gray-500 hover:text-blue-600"
+                            disabled={!user || userLikes.has(prediction.id)}
+                            className={`flex items-center space-x-1 transition-colors ${
+                              userLikes.has(prediction.id) 
+                                ? 'text-blue-600 bg-blue-50 px-2 py-1 rounded-full' 
+                                : 'text-gray-500 hover:text-blue-600 hover:bg-gray-50 px-2 py-1 rounded-full'
+                            } ${!user ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                           >
-                            <span>👍</span>
+                            <span>{userLikes.has(prediction.id) ? '👍' : '👍'}</span>
                             <span className="text-sm">{prediction.likes}</span>
                           </button>
                           
                           <button
                             onClick={() => toggleComments(prediction.id)}
-                            className="flex items-center space-x-1 text-gray-500 hover:text-blue-600"
+                            className="flex items-center space-x-1 text-gray-500 hover:text-blue-600 hover:bg-gray-50 px-2 py-1 rounded-full transition-colors"
                           >
                             <span>💬</span>
                             <span className="text-sm">{prediction.replies}</span>
                           </button>
+
+                          {user && user.uid !== prediction.userId && (
+                            <button
+                              onClick={() => handleReportPrediction(prediction.id)}
+                              className="flex items-center space-x-1 text-gray-400 hover:text-red-500 transition-colors"
+                              title="Report this prediction"
+                            >
+                              <span className="text-sm">🚩</span>
+                              <span className="text-xs">Report</span>
+                            </button>
+                          )}
                         </div>
                         
                         <div className="flex items-center space-x-2">
@@ -544,7 +668,20 @@ export default function CommunityPredictionsPage() {
                   </div>
                 )}
               </div>
-            ))
+            ))}
+          </>
+          )}
+          
+          {/* Load More Button */}
+          {!showAllPredictions && sortedPredictions.length > 10 && (
+            <div className="text-center py-6">
+              <button
+                onClick={() => setShowAllPredictions(true)}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Load More Predictions ({sortedPredictions.length - 10} remaining)
+              </button>
+            </div>
           )}
         </div>
       </div>
