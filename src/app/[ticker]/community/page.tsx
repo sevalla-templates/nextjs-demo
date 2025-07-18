@@ -3,10 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment, limit, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, increment, limit, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { firestoreService } from '../../../lib/firestore';
-import Avatar from '../../../components/Avatar';
 import companyTickers from '../../../data/company_tickers.json';
 
 interface CompanyData {
@@ -56,6 +55,13 @@ interface PredictionStats {
   bullishPredictions: number;
   bearishPredictions: number;
   averageConfidence: number;
+  // Detailed breakdown
+  earningsBeat: number;
+  earningsMiss: number;
+  revenueBeat: number;
+  revenueMiss: number;
+  priceUp: number;
+  priceDown: number;
   topPredictors: Array<{
     userId: string;
     userName: string;
@@ -74,7 +80,7 @@ export default function CommunityPredictionsPage() {
   const [comments, setComments] = useState<Record<string, PredictionComment[]>>({});
   const [stats, setStats] = useState<PredictionStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'bullish' | 'bearish'>('all');
+  const [filter, setFilter] = useState<'all' | 'bullish' | 'bearish' | 'earnings_beat' | 'earnings_miss' | 'revenue_beat' | 'revenue_miss' | 'price_up' | 'price_down'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'confidence' | 'likes'>('newest');
   const [showComments, setShowComments] = useState<Record<string, boolean>>({});
   const [newComment, setNewComment] = useState<Record<string, string>>({});
@@ -138,20 +144,42 @@ export default function CommunityPredictionsPage() {
       // Sort by timestamp on client side
       const sortedPredictions = predictionData.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
-      // Enrich with user data (in real app, this would be optimized)
+      // Enrich with user data (load real user profiles)
       const enrichedPredictions = await Promise.all(
         sortedPredictions.map(async (prediction) => {
-          // In a real app, you'd fetch user data from a users collection
-          return {
-            ...prediction,
-            userName: prediction.userName || 'Anonymous User',
-            userPhoto: prediction.userPhoto || '/default-avatar.png',
-            userRank: 'Market Analyst',
-            userBadge: '📊',
-            likes: prediction.likes || 0,
-            replies: prediction.replies || 0,
-            tags: prediction.tags || []
-          };
+          try {
+            // Try to load user profile data
+            const userProfile = prediction.userId ? await firestoreService.getUserProfile(prediction.userId) : null;
+            
+            // Use profile data if available, otherwise fall back to prediction data
+            const displayName = userProfile?.username || prediction.userName || 'Anonymous User';
+            const userBadge = getPredictionBadge(prediction.predictionType); // Always use prediction-based badge for now
+            const userRank = 'Market Analyst'; // Default rank for now, will be based on user achievements later
+            
+            return {
+              ...prediction,
+              userName: displayName,
+              userPhoto: userProfile?.customPhotoURL || prediction.userPhoto || '👤',
+              userRank: userRank,
+              userBadge: userBadge,
+              likes: prediction.likes || 0,
+              replies: prediction.replies || 0,
+              tags: prediction.tags || []
+            };
+          } catch (error) {
+            console.error('Error loading user profile for prediction:', error);
+            // Fallback if user profile loading fails
+            return {
+              ...prediction,
+              userName: prediction.userName || 'Anonymous User',
+              userPhoto: prediction.userPhoto || '👤',
+              userRank: 'Market Analyst',
+              userBadge: getPredictionBadge(prediction.predictionType),
+              likes: prediction.likes || 0,
+              replies: prediction.replies || 0,
+              tags: prediction.tags || []
+            };
+          }
         })
       );
 
@@ -167,11 +195,25 @@ export default function CommunityPredictionsPage() {
         ? enrichedPredictions.reduce((sum, p) => sum + p.confidence, 0) / totalPredictions 
         : 0;
 
+      // Detailed breakdown by prediction type
+      const earningsBeat = enrichedPredictions.filter(p => p.predictionType === 'earnings_beat').length;
+      const earningsMiss = enrichedPredictions.filter(p => p.predictionType === 'earnings_miss').length;
+      const revenueBeat = enrichedPredictions.filter(p => p.predictionType === 'revenue_beat').length;
+      const revenueMiss = enrichedPredictions.filter(p => p.predictionType === 'revenue_miss').length;
+      const priceUp = enrichedPredictions.filter(p => p.predictionType === 'price_up').length;
+      const priceDown = enrichedPredictions.filter(p => p.predictionType === 'price_down').length;
+
       setStats({
         totalPredictions,
         bullishPredictions,
         bearishPredictions,
         averageConfidence,
+        earningsBeat,
+        earningsMiss,
+        revenueBeat,
+        revenueMiss,
+        priceUp,
+        priceDown,
         topPredictors: [] // Would be calculated from user data
       });
 
@@ -267,6 +309,21 @@ export default function CommunityPredictionsPage() {
     return 'Low';
   };
 
+  const getPredictionBadge = (predictionType: string) => {
+    switch (predictionType) {
+      case 'earnings_beat':
+      case 'revenue_beat':
+      case 'price_up':
+        return '🐂'; // Bull for bullish predictions
+      case 'earnings_miss':
+      case 'revenue_miss':
+      case 'price_down':
+        return '🐻'; // Bear for bearish predictions
+      default:
+        return '📊'; // Default fallback
+    }
+  };
+
   const getResultBadge = (isCorrect?: boolean) => {
     if (isCorrect === undefined) return <span className="text-gray-500 text-sm">Pending</span>;
     return isCorrect ? 
@@ -277,28 +334,52 @@ export default function CommunityPredictionsPage() {
   const handleLikePrediction = async (predictionId: string) => {
     if (!user) return;
     
-    // Check if user has already liked this prediction
-    if (userLikes.has(predictionId)) {
-      return; // User has already liked this prediction
-    }
-    
     try {
       const predictionRef = doc(db, 'predictions', predictionId);
-      await updateDoc(predictionRef, {
-        likes: increment(1)
-      });
       
-      // Track user's like to prevent duplicates
-      await addDoc(collection(db, 'predictionLikes'), {
-        predictionId,
-        userId: user.uid,
-        timestamp: serverTimestamp()
-      });
+      if (userLikes.has(predictionId)) {
+        // Unlike the prediction
+        await updateDoc(predictionRef, {
+          likes: increment(-1)
+        });
+        
+        // Remove the like record
+        const likesQuery = query(
+          collection(db, 'predictionLikes'),
+          where('predictionId', '==', predictionId),
+          where('userId', '==', user.uid)
+        );
+        const likesSnapshot = await getDocs(likesQuery);
+        const batch = writeBatch(db);
+        likesSnapshot.docs.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        await batch.commit();
 
-      // Update local state to reflect the like
-      setUserLikes(prev => new Set(prev).add(predictionId));
+        // Update local state
+        setUserLikes(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(predictionId);
+          return newSet;
+        });
+      } else {
+        // Like the prediction
+        await updateDoc(predictionRef, {
+          likes: increment(1)
+        });
+        
+        // Add like record
+        await addDoc(collection(db, 'predictionLikes'), {
+          predictionId,
+          userId: user.uid,
+          timestamp: serverTimestamp()
+        });
+
+        // Update local state
+        setUserLikes(prev => new Set(prev).add(predictionId));
+      }
     } catch (error) {
-      console.error('Error liking prediction:', error);
+      console.error('Error toggling like:', error);
     }
   };
 
@@ -433,7 +514,9 @@ export default function CommunityPredictionsPage() {
         {stats && (
           <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Community Overview</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            
+            {/* Main Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div className="text-center p-4 bg-blue-50 rounded-lg">
                 <div className="text-2xl font-bold text-blue-600">{stats.totalPredictions}</div>
                 <div className="text-sm text-gray-600">Total Predictions</div>
@@ -449,6 +532,37 @@ export default function CommunityPredictionsPage() {
               <div className="text-center p-4 bg-purple-50 rounded-lg">
                 <div className="text-2xl font-bold text-purple-600">{stats.averageConfidence.toFixed(1)}%</div>
                 <div className="text-sm text-gray-600">Avg Confidence</div>
+              </div>
+            </div>
+
+            {/* Detailed Breakdown */}
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Prediction Breakdown</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="text-center p-3 bg-green-50 rounded border">
+                  <div className="text-lg font-bold text-green-600">{stats.earningsBeat}</div>
+                  <div className="text-xs text-gray-600">Earnings Beat</div>
+                </div>
+                <div className="text-center p-3 bg-red-50 rounded border">
+                  <div className="text-lg font-bold text-red-600">{stats.earningsMiss}</div>
+                  <div className="text-xs text-gray-600">Earnings Miss</div>
+                </div>
+                <div className="text-center p-3 bg-green-50 rounded border">
+                  <div className="text-lg font-bold text-green-600">{stats.revenueBeat}</div>
+                  <div className="text-xs text-gray-600">Revenue Beat</div>
+                </div>
+                <div className="text-center p-3 bg-red-50 rounded border">
+                  <div className="text-lg font-bold text-red-600">{stats.revenueMiss}</div>
+                  <div className="text-xs text-gray-600">Revenue Miss</div>
+                </div>
+                <div className="text-center p-3 bg-green-50 rounded border">
+                  <div className="text-lg font-bold text-green-600">{stats.priceUp}</div>
+                  <div className="text-xs text-gray-600">Price Up 10%+</div>
+                </div>
+                <div className="text-center p-3 bg-red-50 rounded border">
+                  <div className="text-lg font-bold text-red-600">{stats.priceDown}</div>
+                  <div className="text-xs text-gray-600">Price Down 10%+</div>
+                </div>
               </div>
             </div>
           </div>
@@ -468,6 +582,12 @@ export default function CommunityPredictionsPage() {
                   <option value="all">All Predictions</option>
                   <option value="bullish">Bullish Only</option>
                   <option value="bearish">Bearish Only</option>
+                  <option value="earnings_beat">Earnings Beat</option>
+                  <option value="earnings_miss">Earnings Miss</option>
+                  <option value="revenue_beat">Revenue Beat</option>
+                  <option value="revenue_miss">Revenue Miss</option>
+                  <option value="price_up">Price Up 10%+</option>
+                  <option value="price_down">Price Down 10%+</option>
                 </select>
               </div>
               
@@ -492,7 +612,35 @@ export default function CommunityPredictionsPage() {
         </div>
 
         {/* Predictions List */}
-        <div className="space-y-6">
+        {(() => {
+          const filteredPredictions = predictions.filter(prediction => {
+            if (filter === 'all') return true;
+            if (filter === 'bullish') {
+              return ['earnings_beat', 'revenue_beat', 'price_up'].includes(prediction.predictionType);
+            }
+            if (filter === 'bearish') {
+              return ['earnings_miss', 'revenue_miss', 'price_down'].includes(prediction.predictionType);
+            }
+            return prediction.predictionType === filter;
+          });
+
+          const sortedPredictions = [...filteredPredictions].sort((a, b) => {
+            switch (sortBy) {
+              case 'newest':
+                return b.timestamp.getTime() - a.timestamp.getTime();
+              case 'confidence':
+                return b.confidence - a.confidence;
+              case 'likes':
+                return b.likes - a.likes;
+              default:
+                return 0;
+            }
+          });
+
+          const displayedPredictions = showAllPredictions ? sortedPredictions : sortedPredictions.slice(0, 10);
+
+          return (
+            <div className="space-y-6">
           {displayedPredictions.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm p-8 text-center">
               <div className="text-gray-400 text-4xl mb-4">🔮</div>
@@ -504,35 +652,23 @@ export default function CommunityPredictionsPage() {
               {displayedPredictions.map((prediction) => (
               <div key={prediction.id} className="bg-white rounded-lg shadow-sm border border-gray-200">
                 <div className="p-6">
-                  <div className="flex items-start space-x-4">
-                    <button
-                      onClick={() => router.push(`/profile/${prediction.userId}`)}
-                      className="flex-shrink-0"
-                    >
-                      <Avatar 
-                        src={prediction.userPhoto}
-                        alt={prediction.userName}
-                        size="md"
-                      />
-                    </button>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => router.push(`/profile/${prediction.userId}`)}
-                            className="font-semibold text-gray-900 hover:text-blue-600"
-                          >
-                            {prediction.userName}
-                          </button>
-                          <span className="text-lg">{prediction.userBadge}</span>
-                          <span className="text-sm text-gray-500">{prediction.userRank}</span>
-                          <span className="text-sm text-gray-500">•</span>
-                          <span className="text-sm text-gray-500">
-                            {prediction.timestamp.toLocaleDateString()}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => router.push(`/profile/${prediction.userId}`)}
+                          className="font-semibold text-gray-900 hover:text-blue-600"
+                        >
+                          {prediction.userName}
+                        </button>
+                        <span className="text-lg">{prediction.userBadge}</span>
+                        <span className="text-sm text-gray-500">{prediction.userRank}</span>
+                        <span className="text-sm text-gray-500">•</span>
+                        <span className="text-sm text-gray-500">
+                          {prediction.timestamp.toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2">
                           <span className={`px-2 py-1 rounded text-sm font-medium ${getPredictionTypeColor(prediction.predictionType)}`}>
                             {getPredictionTypeLabel(prediction.predictionType)}
                           </span>
@@ -570,7 +706,7 @@ export default function CommunityPredictionsPage() {
                         <div className="flex items-center space-x-4">
                           <button
                             onClick={() => handleLikePrediction(prediction.id)}
-                            disabled={!user || userLikes.has(prediction.id)}
+                            disabled={!user}
                             className={`flex items-center space-x-1 transition-colors ${
                               userLikes.has(prediction.id) 
                                 ? 'text-blue-600 bg-blue-50 px-2 py-1 rounded-full' 
@@ -611,7 +747,6 @@ export default function CommunityPredictionsPage() {
                       </div>
                     </div>
                   </div>
-                </div>
                 
                 {/* Comments Section */}
                 {showComments[prediction.id] && (
@@ -687,7 +822,9 @@ export default function CommunityPredictionsPage() {
               </button>
             </div>
           )}
-        </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
