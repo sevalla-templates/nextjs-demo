@@ -1,0 +1,8 @@
+{
+  "name": "GROUP 3 Velo Chat - Serverless P2P Messenger",
+  "description": "A high-performance, distributed, and serverless P2P messaging application inspired by modern design principles. Built with WebRTC and Gemini AI.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

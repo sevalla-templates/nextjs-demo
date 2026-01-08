@@ -35,6 +35,7 @@
     ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "group-3-velo-chat---serverless-p2p-messenger (1)/**"
   ]
 }
